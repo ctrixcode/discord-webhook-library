@@ -5,16 +5,16 @@ import { Image } from '../components/Image';
 import { Thumbnail } from '../components/Thumbnail';
 
 export class Embed {
-  private title?: string;
-  private description?: string;
-  private url?: string;
-  private color?: number;
-  private timestamp?: string;
-  private author?: Author;
-  private footer?: Footer;
-  private image?: Image;
-  private thumbnail?: Thumbnail;
-  private fields: Field[] = [];
+  public title?: string;
+  public description?: string;
+  public url?: string;
+  public color?: number;
+  public timestamp?: string;
+  public author?: Author;
+  public footer?: Footer;
+  public image?: Image;
+  public thumbnail?: Thumbnail;
+  public fields: Field[] = [];
 
   public setTitle(title: string) {
     this.title = title;
