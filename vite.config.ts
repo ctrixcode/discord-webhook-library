@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import path from 'path';
-import dts from 'vite-plugin-dts'; // Import the plugin
+import dts from 'vite-plugin-dts';
 
 export default defineConfig({
   build: {
@@ -10,7 +10,7 @@ export default defineConfig({
       fileName: (format) => `discord-webhook-library.${format}.js`,
     },
     rollupOptions: {
-      external: ['node-fetch'], // Externalize dependencies that shouldn't be bundled
+      external: ['node-fetch'],
       output: {
         globals: {
           'node-fetch': 'fetch',
@@ -18,5 +18,5 @@ export default defineConfig({
       },
     },
   },
-  plugins: [dts()], // Add the plugin here
+  plugins: [dts()],
 });
