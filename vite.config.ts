@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import path from 'path';
+import dts from 'vite-plugin-dts'; // Import the plugin
 
 export default defineConfig({
   build: {
@@ -17,4 +18,5 @@ export default defineConfig({
       },
     },
   },
+  plugins: [dts()], // Add the plugin here
 });
