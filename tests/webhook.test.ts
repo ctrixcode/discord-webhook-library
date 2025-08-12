@@ -61,6 +61,33 @@ describe('Discord Webhook Library Integration Tests', () => {
     await expect(webhook.send()).resolves.not.toThrow();
   });
 
+  it('should send an embed with partial author data', async () => {
+    // Test with only name
+    const embed1 = new Embed()
+      .setTitle('Partial Author 1')
+      .setAuthor({ name: 'Only Name' });
+    const message1 = new Message({ embeds: [embed1] });
+    webhook.addMessage(message1);
+    await expect(webhook.send()).resolves.not.toThrow();
+
+    // Test with name and icon_url (no url)
+    const embed2 = new Embed().setTitle('Partial Author 2').setAuthor({
+      name: 'Name and Icon',
+      icon_url: 'https://i.imgur.com/AfFp7pu.png',
+    });
+    const message2 = new Message({ embeds: [embed2] });
+    webhook.addMessage(message2);
+    await expect(webhook.send()).resolves.not.toThrow();
+
+    // Test with name and url (no icon_url)
+    const embed3 = new Embed()
+      .setTitle('Partial Author 3')
+      .setAuthor({ name: 'Name and URL', url: 'https://example.com/url' });
+    const message3 = new Message({ embeds: [embed3] });
+    webhook.addMessage(message3);
+    await expect(webhook.send()).resolves.not.toThrow();
+  });
+
   it('should send a message with thread name and flags', async () => {
     // Note: thread_name only works in forum channels. flags might be restricted.
     const message = new Message({
@@ -88,7 +115,7 @@ describe('Discord Webhook Library Integration Tests', () => {
 
   it('should edit an existing message successfully', async () => {
     const MESSAGE_LINK_TO_EDIT =
-      'https://discord.com/channels/1197161057085566986/1404795994536935484/1404801037357023254';
+      'https://discord.com/channels/1197161057085566986/1404795994536935484/1404805868956028969';
     const message = new Message({
       content: 'This message has been edited by Jest!',
       editTarget: MESSAGE_LINK_TO_EDIT,
