@@ -15,5 +15,14 @@ export default tseslint.config(
     rules: {
       'prettier/prettier': 'error',
     },
+  },
+  {
+    files: ['**/*.cjs'],
+    languageOptions: {
+      globals: {
+        module: 'readonly',
+        require: 'readonly',
+      },
+    },
   }
 );
