@@ -6,6 +6,11 @@ import { Footer } from './components/Footer';
 import { Image } from './components/Image';
 import { Thumbnail } from './components/Thumbnail';
 
+/**
+ * Creates a new Webhook instance.
+ * @param url The full Discord webhook URL.
+ * @returns A new Webhook instance.
+ */
 export function createWebhook(url: string): Webhook {
   return new Webhook(url);
 }
