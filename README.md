@@ -60,8 +60,14 @@ const richEmbed = new Embed()
   .setDescription('This library just got a major update!')
   .setColor(0x0099ff) // Blue color
   .setTimestamp(new Date())
-  .setAuthor({ name: 'Gemini Dev', icon_url: 'https://i.imgur.com/AfFp7pu.png' }) // Accepts plain object
-  .setFooter({ text: 'Powered by Gemini', icon_url: 'https://i.imgur.com/AfFp7pu.png' }) // Accepts plain object
+  .setAuthor({
+    name: 'Gemini Dev',
+    icon_url: 'https://i.imgur.com/AfFp7pu.png',
+  }) // Accepts plain object
+  .setFooter({
+    text: 'Powered by Gemini',
+    icon_url: 'https://i.imgur.com/AfFp7pu.png',
+  }) // Accepts plain object
   .setImage('https://i.imgur.com/AfFp7pu.png') // Accepts string URL
   .setThumbnail('https://i.imgur.com/AfFp7pu.png') // Accepts string URL
   .addField(new Field('Version', '1.0.0', true))
@@ -76,14 +82,19 @@ const embedMessage = new Message({
 hook.addMessage(embedMessage);
 
 // --- Example 3: Batch Sending ---
-const batchMessage1 = new Message({ content: 'This is the first message in a batch.' });
-const batchMessage2 = new Message({ content: 'This is the second message in a batch.' });
+const batchMessage1 = new Message({
+  content: 'This is the first message in a batch.',
+});
+const batchMessage2 = new Message({
+  content: 'This is the second message in a batch.',
+});
 hook.addMessage(batchMessage1);
 hook.addMessage(batchMessage2);
 
 // --- Example 4: Editing an Existing Message ---
 // You need the full message link or just the message ID
-const MESSAGE_LINK_TO_EDIT = 'https://discord.com/channels/YOUR_GUILD_ID/YOUR_CHANNEL_ID/YOUR_MESSAGE_ID';
+const MESSAGE_LINK_TO_EDIT =
+  'https://discord.com/channels/YOUR_GUILD_ID/YOUR_CHANNEL_ID/YOUR_MESSAGE_ID';
 const editedMessage = new Message({
   content: 'This message has been updated!',
   editTarget: MESSAGE_LINK_TO_EDIT,
@@ -107,3 +118,4 @@ console.log(JSON.stringify(hook.getPayloads(), null, 2)); // Shows remaining mes
 // --- Clearing the queue manually ---
 hook.clearMessages();
 console.log('Queue cleared. Messages in queue:', hook.getPayloads().length);
+```
