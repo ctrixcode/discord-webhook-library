@@ -6,4 +6,11 @@ export class Footer {
     this.text = text;
     this.icon_url = icon_url;
   }
+
+  toJSON() {
+    return {
+      text: this.text,
+      icon_url: this.icon_url,
+    };
+  }
 }

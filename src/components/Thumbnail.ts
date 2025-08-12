@@ -4,4 +4,10 @@ export class Thumbnail {
   constructor(url: string) {
     this.url = url;
   }
+
+  toJSON() {
+    return {
+      url: this.url,
+    };
+  }
 }

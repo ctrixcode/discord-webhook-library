@@ -4,4 +4,10 @@ export class Image {
   constructor(url: string) {
     this.url = url;
   }
+
+  toJSON() {
+    return {
+      url: this.url,
+    };
+  }
 }

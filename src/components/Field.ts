@@ -8,4 +8,12 @@ export class Field {
     this.value = value;
     this.inline = inline;
   }
+
+  toJSON() {
+    return {
+      name: this.name,
+      value: this.value,
+      inline: this.inline,
+    };
+  }
 }

@@ -3,6 +3,7 @@ import { Message } from '../builders/Message';
 export class Webhook {
   private webhookId: string;
   private webhookToken: string;
+  private messages: Message[] = [];
 
   constructor(url: string) {
     const parts = url.split('/');
@@ -10,51 +11,43 @@ export class Webhook {
     this.webhookToken = parts[parts.length - 1];
   }
 
-  public async send(message: Message) {
-    const payload: Record<string, unknown> = {};
+  public addMessage(message: Message) {
+    this.messages.push(message);
+    return this;
+  }
 
-    if (message.content) payload.content = message.content;
-    if (message.username) payload.username = message.username;
-    if (message.avatar_url) payload.avatar_url = message.avatar_url;
-    if (message.tts) payload.tts = message.tts;
-    if (message.thread_name) payload.thread_name = message.thread_name;
-    if (message.flags !== undefined) payload.flags = message.flags;
+  public clearMessages() {
+    this.messages = [];
+    return this;
+  }
 
-    if (message.embeds.length > 0) {
-      payload.embeds = message.embeds.map((embed) => {
-        const embedPayload: Record<string, unknown> = {};
-        if (embed.title) embedPayload.title = embed.title;
-        if (embed.description) embedPayload.description = embed.description;
-        if (embed.url) embedPayload.url = embed.url;
-        if (embed.color) embedPayload.color = embed.color;
-        if (embed.timestamp) embedPayload.timestamp = embed.timestamp;
-        if (embed.author) {
-          embedPayload.author = {
-            name: embed.author.name,
-            ...(embed.author.url && { url: embed.author.url }),
-            ...(embed.author.icon_url && { icon_url: embed.author.icon_url }),
-          };
-        }
-        if (embed.footer) {
-          embedPayload.footer = {
-            text: embed.footer.text,
-            ...(embed.footer.icon_url && { icon_url: embed.footer.icon_url }),
-          };
-        }
-        if (embed.image) embedPayload.image = { url: embed.image.url };
-        if (embed.thumbnail)
-          embedPayload.thumbnail = { url: embed.thumbnail.url };
+  public getPayloads(): Record<string, unknown>[] {
+    return this.messages.map((message) => message.getPayload());
+  }
+  public async send() {
+    const remainingMessages: Message[] = [];
+    const errors: unknown[] = [];
 
-        // Always include fields array, even if empty
-        embedPayload.fields = embed.fields.map((field) => ({
-          name: field.name,
-          value: field.value,
-          ...(field.inline !== undefined && { inline: field.inline }),
-        }));
-
-        return embedPayload;
-      });
+    for (const message of this.messages) {
+      try {
+        await this._sendOne(message);
+      } catch (error) {
+        remainingMessages.push(message);
+        errors.push(error);
+      }
     }
+
+    this.messages = remainingMessages;
+
+    if (errors.length > 0) {
+      throw new Error(
+        `Failed to send ${errors.length} messages. See .errors for details.`
+      );
+    }
+  }
+
+  private async _sendOne(message: Message) {
+    const payload = message.getPayload();
 
     let requestUrl = `https://discord.com/api/webhooks/${this.webhookId}/${this.webhookToken}`;
     let method = 'POST';
