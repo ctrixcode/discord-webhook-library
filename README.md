@@ -2,7 +2,7 @@
 
 A powerful and easy-to-use library for creating and sending richly formatted messages to Discord webhooks.
 
-This library simplifies the process of constructing the JSON payload for Discord webhooks, providing a clean and intuitive interface for all supported features. It is designed to mirror the structure and capabilities of tools like [Discohook](https://discohook.org/), allowing you to build complex messages with ease.
+This library simplifies the process of constructing the JSON payload for Discord webhooks, providing a clean and intuitive interface for all supported features. It is designed to mirror the structure and capabilities of similar tools, allowing you to build complex messages with ease.
 
 ## Features
 
