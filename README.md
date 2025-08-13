@@ -13,33 +13,36 @@ This library simplifies the process of constructing the JSON payload for Discord
   - `title`
   - `description`
   - `color`
-  - `author` (now accepts a plain object `{ name, url?, icon_url? }`)
+  - `author`
   - `fields`
-  - `thumbnail` (now accepts a string URL)
-  - `image` (now accepts a string URL)
-  - `footer` (now accepts a plain object `{ text, icon_url? }`)
+  - `thumbnail`
+  - `image`
+  - `footer`
   - `timestamp`
+- **Zod Validation:** Robust schema validation for all message and embed payloads, ensuring compliance with Discord API limits.
+- **Axios-based HTTP Client:** Reliable and efficient request handling with built-in rate-limiting and error propagation.
+- **File Attachments:** Send local files along with your messages.
+- **Pre-styled Helper Embeds:** Quickly send `info`, `success`, `warning`, and `error` messages with pre-defined colors.
 - **Thread Support:** Specify `thread_name` for messages in Discord Forum Channels.
 - **Message Flags:** Set `flags` for advanced message properties.
 - **Batch Sending:** Queue multiple messages and send them in a single operation.
 - **Payload Inspection:** Easily view the generated JSON payload before sending.
 - **Message Editing & Deletion:** Edit and delete previously sent messages.
 - **Text-to-Speech:** Send messages using Discord's `tts` feature.
-- **File Attachments:** (Coming Soon) Attach files to your messages.
 
 ## Installation
 
 ```bash
-npm install discord-webhook-library
+pnpm add discord-webhook-library axios form-data
 # or
-yarn add discord-webhook-library
+npm install discord-webhook-library axios form-data
 # or
-bun add discord-webhook-library
+yarn add discord-webhook-library axios form-data
 ```
 
 ## Basic Usage
 
-Here is a simple example of how to create and send a webhook message:
+Here is a simple example of how to create and send webhook messages, including new features:
 
 ```typescript
 import { Webhook, Message, Embed, Field } from 'discord-webhook-library';
@@ -63,13 +66,13 @@ const richEmbed = new Embed()
   .setAuthor({
     name: 'Gemini Dev',
     icon_url: 'https://i.imgur.com/AfFp7pu.png',
-  }) // Accepts plain object
+  })
   .setFooter({
     text: 'Powered by Gemini',
     icon_url: 'https://i.imgur.com/AfFp7pu.png',
-  }) // Accepts plain object
-  .setImage('https://i.imgur.com/AfFp7pu.png') // Accepts string URL
-  .setThumbnail('https://i.imgur.com/AfFp7pu.png') // Accepts string URL
+  })
+  .setImage('https://i.imgur.com/AfFp7pu.png')
+  .setThumbnail('https://i.imgur.com/AfFp7pu.png')
   .addField(new Field('Version', '1.0.0', true))
   .addField(new Field('Status', 'Stable', true));
 
@@ -81,7 +84,22 @@ const embedMessage = new Message({
 });
 hook.addMessage(embedMessage);
 
-// --- Example 3: Batch Sending ---
+// --- Example 3: Sending a File ---
+// Make sure to have a file named 'my_file.txt' in your project root for this example
+// Or replace 'my_file.txt' with the actual path to your file
+// await hook.sendFile('./my_file.txt');
+
+// --- Example 4: Sending a File with a Message ---
+// const fileWithMessage = new Message({ content: 'Here is a file with a message!' });
+// await hook.sendFile('./my_file.txt', fileWithMessage);
+
+// --- Example 5: Pre-styled Helper Embeds ---
+await hook.info('System Update', 'The server will be restarted in 5 minutes.');
+await hook.success('Deployment Successful!');
+await hook.warning('Low Disk Space', 'Only 10% of disk space remaining.');
+await hook.error('Critical Error', 'Failed to connect to the database.');
+
+// --- Example 6: Batch Sending ---
 const batchMessage1 = new Message({
   content: 'This is the first message in a batch.',
 });
@@ -91,7 +109,7 @@ const batchMessage2 = new Message({
 hook.addMessage(batchMessage1);
 hook.addMessage(batchMessage2);
 
-// --- Example 4: Editing an Existing Message ---
+// --- Example 7: Editing an Existing Message ---
 // You need the full message link or just the message ID
 const MESSAGE_LINK_TO_EDIT =
   'https://discord.com/channels/YOUR_GUILD_ID/YOUR_CHANNEL_ID/YOUR_MESSAGE_ID';
@@ -100,6 +118,10 @@ const editedMessage = new Message({
   editTarget: MESSAGE_LINK_TO_EDIT,
 });
 hook.addMessage(editedMessage); // Add to queue for sending
+
+// --- Example 8: Deleting an Existing Message ---
+// const MESSAGE_ID_TO_DELETE = 'YOUR_MESSAGE_ID';
+// await hook.delete(MESSAGE_ID_TO_DELETE);
 
 // --- Send all queued messages ---
 // Messages are sent sequentially. If one fails, it remains in the queue.
@@ -118,4 +140,22 @@ console.log(JSON.stringify(hook.getPayloads(), null, 2)); // Shows remaining mes
 // --- Clearing the queue manually ---
 hook.clearMessages();
 console.log('Queue cleared. Messages in queue:', hook.getPayloads().length);
+
+## Browser Compatibility & Backend Proxy
+
+This library is primarily designed for **Node.js (server-side)** environments. While the core message building logic is environment-agnostic, direct use in a web browser is **not recommended** and will likely encounter issues due to: 
+
+-   **CORS (Cross-Origin Resource Sharing) Policy:** Web browsers block direct requests to Discord's API from different origins.
+-   **Security Risks:** Exposing your Discord webhook URL in client-side code makes it vulnerable to abuse.
+
+For browser-based applications, you should use this library on a **backend server** that acts as a proxy. Your frontend application would send requests to your backend, and your backend would then securely use this library to send messages to Discord.
+
+## Development & Contributing
+
+This project uses [Husky](https://typicode.github.io/husky/) for Git hooks to maintain code quality and automate tasks.
+
+-   **`pre-commit` hook:** Runs `eslint` for linting and `prettier` for code formatting on staged files.
+-   **`pre-push` hook:** Automatically bumps the package version (`patch` version) when pushing to the `main` branch. 
+    **WARNING:** This will create a new version commit and tag every time you push to `main`. Consider using a dedicated release pipeline in CI/CD for more controlled versioning in production environments.
+
 ```
