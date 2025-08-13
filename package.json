@@ -1,7 +1,7 @@
 {
   "name": "discord-webhook-library",
   "private": false,
-  "version": "0.7.7",
+  "version": "0.8.0",
   "type": "module",
   "main": "./dist/discord-webhook-library.umd.js",
   "module": "./dist/discord-webhook-library.es.js",
@@ -65,10 +65,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/CandyKisu/discord-webhook-library.git"
+    "url": "git+https://github.com/ctrixcode/discord-webhook-library.git"
   },
-  "homepage": "https://github.com/CandyKisu/discord-webhook-library#readme",
+  "homepage": "https://github.com/ctrixcode/discord-webhook-library#readme",
   "bugs": {
-    "url": "https://github.com/CandyKisu/discord-webhook-library/issues"
+    "url": "https://github.com/ctrixcode/discord-webhook-library/issues"
   }
 }
