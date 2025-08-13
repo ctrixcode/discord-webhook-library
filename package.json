@@ -46,5 +46,29 @@
     "axios": "^1.11.0",
     "form-data": "^4.0.4",
     "zod": "^4.0.17"
+  },
+  "description": "A powerful and easy-to-use library for creating and sending richly formatted messages to Discord webhooks, with built-in validation and rate-limiting.",
+  "keywords": [
+    "discord",
+    "webhook",
+    "library",
+    "api",
+    "message",
+    "embed",
+    "validation",
+    "typescript",
+    "node",
+    "axios",
+    "form-data"
+  ],
+  "author": "Ctrix coderck@proton.me",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CandyKisu/discord-webhook-library.git"
+  },
+  "homepage": "https://github.com/CandyKisu/discord-webhook-library#readme",
+  "bugs": {
+    "url": "https://github.com/CandyKisu/discord-webhook-library/issues"
   }
 }
