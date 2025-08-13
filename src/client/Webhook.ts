@@ -1,4 +1,5 @@
 import { Message } from '../builders/Message';
+import { MessageSchema } from '../validation/message.validation';
 
 export class Webhook {
   private webhookId: string;
@@ -55,6 +56,12 @@ export class Webhook {
    * @throws {Error} If any message fails to send. The error message will indicate the number of failures.
    */
   public async send() {
+    // First, validate all message payloads.
+    // This will throw a ZodError immediately if any are invalid.
+    for (const message of this.messages) {
+      MessageSchema.parse(message.getPayload());
+    }
+
     const remainingMessages: Message[] = [];
     const errors: unknown[] = [];
 
@@ -83,11 +90,14 @@ export class Webhook {
     let method = 'POST';
 
     if (message.editTarget) {
+      let messageId: string;
       const messageIdMatch = message.editTarget.match(/\/([0-9]+)$/);
-      if (!messageIdMatch) {
-        throw new Error('Invalid message link provided for editTarget.');
+      if (messageIdMatch) {
+        messageId = messageIdMatch[1];
+      } else {
+        // Assume it's just the ID if not a link
+        messageId = message.editTarget;
       }
-      const messageId = messageIdMatch[1];
       requestUrl = `${requestUrl}/messages/${messageId}`;
       method = 'PATCH';
     }
