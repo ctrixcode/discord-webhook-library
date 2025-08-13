@@ -1,5 +1,16 @@
 import { Webhook, Message, Embed, Field } from '../src';
 import { ZodError } from 'zod';
+import axios from 'axios';
+import * as fs from 'fs';
+import * as path from 'path';
+import FormData from 'form-data';
+import { DISCORD_COLORS } from '../src/constants/colors';
+
+// Mock the entire axios module
+jest.mock('axios');
+
+// Cast axios to a Jest mock to access its mock methods
+const mockedAxios = axios as jest.Mocked<typeof axios>;
 
 // This is a mock URL. The tests will not actually send requests.
 const WEBHOOK_URL =
@@ -7,29 +18,45 @@ const WEBHOOK_URL =
 
 describe('Discord Webhook Library', () => {
   let webhook: Webhook;
+  const DUMMY_FILE_PATH = path.join(__dirname, 'dummy.txt');
 
   beforeAll(() => {
-    // Mock fetch to prevent actual network requests
-    global.fetch = jest.fn(() =>
-      Promise.resolve({
-        ok: true,
-        status: 204,
-        statusText: 'No Content',
-        text: () => Promise.resolve(''),
-      } as Response)
-    );
+    // Create a dummy file for sendFile tests
+    fs.writeFileSync(DUMMY_FILE_PATH, 'This is a dummy file for testing.');
+
+    // Mock axios.create().request to simulate successful responses
+    mockedAxios.create.mockReturnThis(); // Mock create() to return the mocked axios itself
+    mockedAxios.request.mockResolvedValue({
+      data: {},
+      status: 204,
+      statusText: 'No Content',
+      headers: {},
+      config: {},
+    });
   });
 
   beforeEach(() => {
     webhook = new Webhook(WEBHOOK_URL);
-    (global.fetch as jest.Mock).mockClear();
+    mockedAxios.request.mockClear(); // Clear mock calls before each test
+  });
+
+  afterAll(() => {
+    // Clean up the dummy file after all tests are done
+    fs.unlinkSync(DUMMY_FILE_PATH);
   });
 
   it('should send a basic message successfully', async () => {
     const message = new Message({ content: 'Hello from Jest!' });
     webhook.addMessage(message);
     await expect(webhook.send()).resolves.not.toThrow();
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(mockedAxios.request).toHaveBeenCalledTimes(1);
+    expect(mockedAxios.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'POST',
+        data: expect.objectContaining({ content: 'Hello from Jest!' }),
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
   });
 
   it('should send a message with custom username and avatar', async () => {
@@ -40,6 +67,17 @@ describe('Discord Webhook Library', () => {
     });
     webhook.addMessage(message);
     await expect(webhook.send()).resolves.not.toThrow();
+    expect(mockedAxios.request).toHaveBeenCalledTimes(1);
+    expect(mockedAxios.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'POST',
+        data: expect.objectContaining({
+          content: 'Message with custom identity!',
+          username: 'JestBot',
+          avatar_url: 'https://i.imgur.com/AfFp7pu.png',
+        }),
+      })
+    );
   });
 
   it('should send a message with a full embed', async () => {
@@ -68,6 +106,20 @@ describe('Discord Webhook Library', () => {
     });
     webhook.addMessage(message);
     await expect(webhook.send()).resolves.not.toThrow();
+    expect(mockedAxios.request).toHaveBeenCalledTimes(1);
+    expect(mockedAxios.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'POST',
+        data: expect.objectContaining({
+          content: 'Message with embed',
+          embeds: expect.arrayContaining([
+            expect.objectContaining({
+              title: 'Test Embed from Jest',
+            }),
+          ]),
+        }),
+      })
+    );
   });
 
   it('should reject with a validation error for invalid embed URL', async () => {
@@ -75,6 +127,7 @@ describe('Discord Webhook Library', () => {
     const message = new Message({ embeds: [embed] });
     webhook.addMessage(message);
     await expect(webhook.send()).rejects.toThrow(ZodError);
+    expect(mockedAxios.request).not.toHaveBeenCalled(); // Should not make a request if validation fails
   });
 
   it('should send multiple messages in a batch successfully', async () => {
@@ -83,7 +136,7 @@ describe('Discord Webhook Library', () => {
     webhook.addMessage(message1).addMessage(message2);
     await expect(webhook.send()).resolves.not.toThrow();
     expect(webhook.getPayloads().length).toBe(0); // Queue should be empty
-    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(mockedAxios.request).toHaveBeenCalledTimes(2);
   });
 
   it('should edit an existing message successfully', async () => {
@@ -94,8 +147,40 @@ describe('Discord Webhook Library', () => {
     webhook.addMessage(message);
     await expect(webhook.send()).resolves.not.toThrow();
 
-    const fetchOptions = (global.fetch as jest.Mock).mock.calls[0][1];
-    expect(fetchOptions.method).toBe('PATCH');
+    expect(mockedAxios.request).toHaveBeenCalledTimes(1);
+    expect(mockedAxios.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'PATCH',
+        url: '/messages/1234567890123456789',
+        data: expect.objectContaining({
+          content: 'This message has been edited by Jest!',
+        }),
+      })
+    );
+  });
+
+  it('should send a file successfully', async () => {
+    await webhook.sendFile(DUMMY_FILE_PATH);
+    expect(mockedAxios.request).toHaveBeenCalledTimes(1);
+    expect(mockedAxios.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'POST',
+        data: expect.any(FormData),
+      })
+    );
+  });
+
+  it('should send a file with a message successfully', async () => {
+    const message = new Message({ content: 'File with message!' });
+    await webhook.sendFile(DUMMY_FILE_PATH, message);
+    expect(mockedAxios.request).toHaveBeenCalledTimes(1);
+    expect(mockedAxios.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'POST',
+        data: expect.any(FormData),
+      })
+    );
+    // Further inspection of FormData content is complex with Jest mocks
   });
 
   it('should clear messages from the queue', () => {
@@ -104,5 +189,80 @@ describe('Discord Webhook Library', () => {
     expect(webhook.getPayloads().length).toBe(1);
     webhook.clearMessages();
     expect(webhook.getPayloads().length).toBe(0);
+  });
+
+  // Helper method tests
+  it('should send an info message', async () => {
+    await webhook.info('Info Title', 'Info Description');
+    expect(mockedAxios.request).toHaveBeenCalledTimes(1);
+    expect(mockedAxios.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'POST',
+        data: expect.objectContaining({
+          embeds: expect.arrayContaining([
+            expect.objectContaining({
+              title: 'Info Title',
+              description: 'Info Description',
+              color: DISCORD_COLORS.INFO,
+            }),
+          ]),
+        }),
+      })
+    );
+  });
+
+  it('should send a success message', async () => {
+    await webhook.success('Success Title');
+    expect(mockedAxios.request).toHaveBeenCalledTimes(1);
+    expect(mockedAxios.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'POST',
+        data: expect.objectContaining({
+          embeds: expect.arrayContaining([
+            expect.objectContaining({
+              title: 'Success Title',
+              color: DISCORD_COLORS.SUCCESS,
+            }),
+          ]),
+        }),
+      })
+    );
+  });
+
+  it('should send a warning message', async () => {
+    await webhook.warning('Warning Title', 'Warning Description');
+    expect(mockedAxios.request).toHaveBeenCalledTimes(1);
+    expect(mockedAxios.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'POST',
+        data: expect.objectContaining({
+          embeds: expect.arrayContaining([
+            expect.objectContaining({
+              title: 'Warning Title',
+              description: 'Warning Description',
+              color: DISCORD_COLORS.WARNING,
+            }),
+          ]),
+        }),
+      })
+    );
+  });
+
+  it('should send an error message', async () => {
+    await webhook.error('Error Title');
+    expect(mockedAxios.request).toHaveBeenCalledTimes(1);
+    expect(mockedAxios.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'POST',
+        data: expect.objectContaining({
+          embeds: expect.arrayContaining([
+            expect.objectContaining({
+              title: 'Error Title',
+              color: DISCORD_COLORS.ERROR,
+            }),
+          ]),
+        }),
+      })
+    );
   });
 });
