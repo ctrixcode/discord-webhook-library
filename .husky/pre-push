@@ -1,19 +1,22 @@
 #!/bin/sh
 . "$(dirname "$0")/_/husky.sh"
 
-# Auto-version update on push to main branch
-# WARNING: This will create a new version commit and tag every time you push to main.
-# This can lead to a very high number of versions.
-# Consider using a dedicated release pipeline in CI/CD for more controlled versioning.
-
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
 if [ "$BRANCH" = "main" ]; then
   echo "--- Running pre-push hook: Auto-bumping version on main branch ---"
-  # npm version patch creates a new commit and tag.
-  # -m allows a custom commit message. %s is replaced by the new version number.
-  npm version patch -m "chore(release): bump version to %s"
-  echo "--- Version bumped. Proceeding with push. ---"
+  OLD_VERSION=$(node -p "require('./package.json').version")
+  npm version patch -m "chore(release): bump version to %s" # This creates a commit and tag
+  NEW_VERSION=$(node -p "require('./package.json').version")
+
+  if [ "$OLD_VERSION" != "$NEW_VERSION" ]; then
+    echo "Version bumped from $OLD_VERSION to $NEW_VERSION."
+    echo "The version bump commit has been created locally."
+    echo "Please run 'git push --follow-tags' to push the new version commit and tag."
+    exit 1 # Abort the current push
+  else
+    echo "Version did not change. Proceeding with push."
+  fi
 else
   echo "--- Running pre-push hook: Not on main branch, skipping auto-version bump ---"
 fi
