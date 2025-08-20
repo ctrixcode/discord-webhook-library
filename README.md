@@ -143,7 +143,7 @@ console.log('Queue cleared. Messages in queue:', hook.getPayloads().length);
 
 ## Browser Compatibility & Backend Proxy
 
-This library is primarily designed for **Node.js (server-side)** environments. While the core message building logic is environment-agnostic, direct use in a web browser is **not recommended** and will likely encounter issues due to: 
+This library is primarily designed for **Node.js (server-side)** environments. While the core message building logic is environment-agnostic, direct use in a web browser is **not recommended** and will likely encounter issues due to:
 
 -   **CORS (Cross-Origin Resource Sharing) Policy:** Web browsers block direct requests to Discord's API from different origins.
 -   **Security Risks:** Exposing your Discord webhook URL in client-side code makes it vulnerable to abuse.
@@ -155,7 +155,7 @@ For browser-based applications, you should use this library on a **backend serve
 This project uses [Husky](https://typicode.github.io/husky/) for Git hooks to maintain code quality and automate tasks.
 
 -   **`pre-commit` hook:** Runs `eslint` for linting and `prettier` for code formatting on staged files.
--   **`pre-push` hook:** Automatically bumps the package version (`patch` version) when pushing to the `main` branch. 
+-   **`pre-push` hook:** Automatically bumps the package version (`patch` version) when pushing to the `main` branch.
     **WARNING:** This will create a new version commit and tag every time you push to `main`. Consider using a dedicated release pipeline in CI/CD for more controlled versioning in production environments.
 
 ```
