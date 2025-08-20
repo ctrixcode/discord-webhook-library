@@ -1,11 +1,18 @@
 {
   "name": "discord-webhook-library",
   "private": false,
-  "version": "0.8.1",
+  "version": "0.8.2",
   "type": "module",
-  "main": "./dist/discord-webhook-library.umd.js",
+  "main": "./dist/discord-webhook-library.cjs",
   "module": "./dist/discord-webhook-library.es.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/discord-webhook-library.es.js",
+      "require": "./dist/discord-webhook-library.cjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "files": [
     "dist"
   ],

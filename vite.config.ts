@@ -7,14 +7,23 @@ export default defineConfig({
     lib: {
       entry: path.resolve(__dirname, 'src/index.ts'),
       name: 'DiscordWebhookLibrary',
-      fileName: (format) => `discord-webhook-library.${format}.js`,
+      fileName: (format) => {
+        if (format === 'es') return 'discord-webhook-library.es.js';
+        if (format === 'cjs') return 'discord-webhook-library.cjs';
+        return `discord-webhook-library.${format}.js`;
+      },
+      formats: ['es', 'cjs'],
     },
     rollupOptions: {
-      external: ['node-fetch'],
+      external: ['node-fetch', 'form-data', 'axios', 'fs'],
       output: {
         globals: {
           'node-fetch': 'fetch',
+          'form-data': 'FormData',
+          axios: 'axios',
+          fs: 'fs',
         },
+        exports: 'named',
       },
     },
   },

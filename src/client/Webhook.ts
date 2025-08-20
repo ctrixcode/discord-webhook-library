@@ -93,8 +93,11 @@ export class Webhook {
     this.messages = remainingMessages;
 
     if (errors.length > 0) {
+      const errorMessages = errors
+        .map((err) => (err instanceof Error ? err.message : String(err)))
+        .join('\n');
       throw new Error(
-        `Failed to send ${errors.length} messages. See .errors for details.`
+        `Failed to send ${errors.length} messages. Details:\n${errorMessages}`
       );
     }
   }
