@@ -122,6 +122,32 @@ describe('Discord Webhook Library', () => {
     );
   });
 
+  it('should send a message without content but with a valid embed', async () => {
+    const embed = new Embed().setTitle('Valid Embed');
+    const message = new Message({ embeds: [embed] });
+    webhook.addMessage(message);
+    await expect(webhook.send()).resolves.not.toThrow();
+    expect(mockedAxios.request).toHaveBeenCalledTimes(1);
+    expect(mockedAxios.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'POST',
+        data: expect.objectContaining({
+          embeds: expect.arrayContaining([
+            expect.objectContaining({ title: 'Valid Embed' }),
+          ]),
+        }),
+      })
+    );
+  });
+
+  it('should fail to send a message without content and with an invalid embed', async () => {
+    const embed = new Embed(); // No content
+    const message = new Message({ embeds: [embed] });
+    webhook.addMessage(message);
+    await expect(webhook.send()).rejects.toThrow(ZodError);
+    expect(mockedAxios.request).not.toHaveBeenCalled();
+  });
+
   it('should reject with a validation error for invalid embed URL', async () => {
     const embed = new Embed().setURL('not-a-valid-url');
     const message = new Message({ embeds: [embed] });
