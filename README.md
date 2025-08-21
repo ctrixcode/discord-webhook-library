@@ -6,6 +6,9 @@ This library simplifies the process of constructing the JSON payload for Discord
 
 ## Features
 
+- **Improved Error Handling:** Errors are now thrown as custom classes (`WebhookError`, `ValidationError`, `RequestError`, `FileSystemError`) providing more context and easier programmatic handling.
+- **Flexible Message Sending:** Send messages with only embeds (without content), as long as the embeds are valid and contain content.
+- **Expanded Test Coverage:** Added more comprehensive tests for various message and embed scenarios.
 - **Flexible Message Creation:** Construct messages using a fluent builder pattern or by passing an options object to the `Message` constructor.
 - **User Identity:** Customize the message's `username` and `avatar_url` directly on the `Message` object.
 - **Rich Content:** Send plain `content` messages.
@@ -73,7 +76,7 @@ const richEmbed = new Embed()
   })
   .setImage('https://i.imgur.com/AfFp7pu.png')
   .setThumbnail('https://i.imgur.com/AfFp7pu.png')
-  .addField(new Field('Version', '1.0.0', true))
+  .addField(new Field('Version', '0.9.0', true))
   .addField(new Field('Status', 'Stable', true));
 
 const embedMessage = new Message({
@@ -98,6 +101,17 @@ await hook.info('System Update', 'The server will be restarted in 5 minutes.');
 await hook.success('Deployment Successful!');
 await hook.warning('Low Disk Space', 'Only 10% of disk space remaining.');
 await hook.error('Critical Error', 'Failed to connect to the database.');
+
+// --- Example 5: Sending a Message with only an Embed ---
+const embedOnlyMessage = new Message({
+  embeds: [
+    new Embed()
+      .setTitle('Embed Only Message')
+      .setDescription('This message has no content, only an embed.')
+      .setColor(0xffa500), // Orange color
+  ],
+});
+hook.addMessage(embedOnlyMessage);
 
 // --- Example 6: Batch Sending ---
 const batchMessage1 = new Message({
@@ -158,4 +172,3 @@ This project uses [Husky](https://typicode.github.io/husky/) for Git hooks to ma
 -   **`pre-push` hook:** Automatically bumps the package version (`patch` version) when pushing to the `main` branch.
     **WARNING:** This will create a new version commit and tag every time you push to `main`. Consider using a dedicated release pipeline in CI/CD for more controlled versioning in production environments.
 
-```
