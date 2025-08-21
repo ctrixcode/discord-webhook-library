@@ -6,6 +6,13 @@ import { Request } from './Request';
 import * as fs from 'fs';
 import FormData from 'form-data';
 import { DISCORD_COLORS } from '../constants/colors';
+import {
+  WebhookError,
+  ValidationError,
+  RequestError,
+  FileSystemError,
+} from '../errors';
+import { ZodError } from 'zod';
 
 export class Webhook {
   private webhookId: string;
@@ -17,13 +24,13 @@ export class Webhook {
   /**
    * Creates a new Webhook instance.
    * @param url The full Discord webhook URL.
-   * @throws {Error} If the webhook URL is invalid or empty.
+   * @throws {WebhookError} If the webhook URL is invalid or empty.
    */
   constructor(url: string) {
     const parts = url.split('/');
     if (parts.length < 2) {
       // Basic validation
-      throw new Error('Invalid Webhook URL provided.');
+      throw new WebhookError('Invalid Webhook URL provided.', 'INVALID_URL');
     }
     this.webhookId = parts[parts.length - 2];
     this.webhookToken = parts[parts.length - 1];
@@ -69,13 +76,28 @@ export class Webhook {
    * Sends all messages currently in the queue.
    * Messages are sent sequentially. If a message fails to send, it remains in the queue,
    * and the method will throw an error after attempting to send all messages.
-   * @throws {Error} If any message fails to send. The error message will indicate the number of failures.
+   * @throws {ValidationError} If any message fails Zod validation.
+   * @throws {RequestError} If any message fails to send due to a network or Discord API error.
+   * @throws {WebhookError} For other unexpected errors during the sending process.
    */
   public async send() {
     // First, validate all message payloads.
-    // This will throw a ZodError immediately if any are invalid.
+    // This will throw a ValidationError immediately if any are invalid.
     for (const message of this.messages) {
-      MessageSchema.parse(message.getPayload());
+      try {
+        MessageSchema.parse(message.getPayload());
+      } catch (error) {
+        if (error instanceof ZodError) {
+          throw new ValidationError(
+            'Invalid message payload provided.',
+            error.issues
+          );
+        } else {
+          throw new WebhookError(
+            `An unexpected error occurred during validation: ${String(error)}`
+          );
+        }
+      }
     }
 
     const remainingMessages: Message[] = [];
@@ -96,8 +118,9 @@ export class Webhook {
       const errorMessages = errors
         .map((err) => (err instanceof Error ? err.message : String(err)))
         .join('\n');
-      throw new Error(
-        `Failed to send ${errors.length} messages. Details:\n${errorMessages}`
+      throw new WebhookError(
+        `Failed to send ${errors.length} messages. Details:\n${errorMessages}`,
+        'BATCH_SEND_FAILURE'
       );
     }
   }
@@ -135,19 +158,43 @@ export class Webhook {
    * Sends a file to the webhook.
    * @param filePath The path to the file to send.
    * @param message An optional Message object to send along with the file.
-   * @throws {Error} If the file sending fails.
+   * @throws {FileSystemError} If the file cannot be read.
+   * @throws {ValidationError} If the message payload fails Zod validation.
+   * @throws {RequestError} If the file sending fails due to a network or Discord API error.
+   * @throws {WebhookError} For other unexpected errors during the file sending process.
    */
   public async sendFile(filePath: string, message?: Message) {
     const form = new FormData();
 
     // Append the file stream
-    form.append('files[0]', fs.createReadStream(filePath));
+    try {
+      fs.accessSync(filePath, fs.constants.R_OK);
+      form.append('files[0]', fs.createReadStream(filePath));
+    } catch (error) {
+      throw new FileSystemError(
+        `Cannot read file at path: ${filePath}. Original error: ${String(error)}`,
+        'FILE_READ_ERROR'
+      );
+    }
 
     // If a message is provided, append its JSON payload
     if (message) {
       const payload = message.getPayload();
       // Validate the message payload before sending
-      MessageSchema.parse(payload);
+      try {
+        MessageSchema.parse(payload);
+      } catch (error) {
+        if (error instanceof ZodError) {
+          throw new ValidationError(
+            'Invalid message payload provided for file attachment.',
+            error.issues
+          );
+        } else {
+          throw new WebhookError(
+            `An unexpected error occurred during file message validation: ${String(error)}`
+          );
+        }
+      }
       form.append('payload_json', JSON.stringify(payload));
     }
 
@@ -160,54 +207,127 @@ export class Webhook {
    * Sends an informational message with a blue embed.
    * @param title The title of the embed.
    * @param description The description of the embed (optional).
+   * @throws {ValidationError} If the generated message payload fails Zod validation.
+   * @throws {RequestError} If the message fails to send due to a network or Discord API error.
+   * @throws {WebhookError} For other unexpected errors.
    */
   public async info(title: string, description?: string) {
     const embed = new Embed().setTitle(title).setColor(DISCORD_COLORS.INFO);
     if (description) embed.setDescription(description);
     const message = new Message({ embeds: [embed] });
-    await this._sendOne(message);
+    try {
+      await this._sendOne(message);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new ValidationError(
+          'Invalid info message payload.',
+          error.issues
+        );
+      } else if (error instanceof RequestError) {
+        throw error; // Re-throw RequestError directly
+      } else {
+        throw new WebhookError(
+          `An unexpected error occurred sending info message: ${String(error)}`
+        );
+      }
+    }
   }
 
   /**
    * Sends a success message with a green embed.
    * @param title The title of the embed.
    * @param description The description of the embed (optional).
+   * @throws {ValidationError} If the generated message payload fails Zod validation.
+   * @throws {RequestError} If the message fails to send due to a network or Discord API error.
+   * @throws {WebhookError} For other unexpected errors.
    */
   public async success(title: string, description?: string) {
     const embed = new Embed().setTitle(title).setColor(DISCORD_COLORS.SUCCESS);
     if (description) embed.setDescription(description);
     const message = new Message({ embeds: [embed] });
-    await this._sendOne(message);
+    try {
+      await this._sendOne(message);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new ValidationError(
+          'Invalid success message payload.',
+          error.issues
+        );
+      } else if (error instanceof RequestError) {
+        throw error; // Re-throw RequestError directly
+      } else {
+        throw new WebhookError(
+          `An unexpected error occurred sending success message: ${String(error)}`
+        );
+      }
+    }
   }
 
   /**
    * Sends a warning message with a yellow embed.
    * @param title The title of the embed.
    * @param description The description of the embed (optional).
+   * @throws {ValidationError} If the generated message payload fails Zod validation.
+   * @throws {RequestError} If the message fails to send due to a network or Discord API error.
+   * @throws {WebhookError} For other unexpected errors.
    */
   public async warning(title: string, description?: string) {
     const embed = new Embed().setTitle(title).setColor(DISCORD_COLORS.WARNING);
     if (description) embed.setDescription(description);
     const message = new Message({ embeds: [embed] });
-    await this._sendOne(message);
+    try {
+      await this._sendOne(message);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new ValidationError(
+          'Invalid warning message payload.',
+          error.issues
+        );
+      } else if (error instanceof RequestError) {
+        throw error; // Re-throw RequestError directly
+      } else {
+        throw new WebhookError(
+          `An unexpected error occurred sending warning message: ${String(error)}`
+        );
+      }
+    }
   }
 
   /**
    * Sends an error message with a red embed.
    * @param title The title of the embed.
    * @param description The description of the embed (optional).
+   * @throws {ValidationError} If the generated message payload fails Zod validation.
+   * @throws {RequestError} If the message fails to send due to a network or Discord API error.
+   * @throws {WebhookError} For other unexpected errors.
    */
   public async error(title: string, description?: string) {
     const embed = new Embed().setTitle(title).setColor(DISCORD_COLORS.ERROR);
     if (description) embed.setDescription(description);
     const message = new Message({ embeds: [embed] });
-    await this._sendOne(message);
+    try {
+      await this._sendOne(message);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new ValidationError(
+          'Invalid error message payload.',
+          error.issues
+        );
+      } else if (error instanceof RequestError) {
+        throw error; // Re-throw RequestError directly
+      } else {
+        throw new WebhookError(
+          `An unexpected error occurred sending error message: ${String(error)}`
+        );
+      }
+    }
   }
 
   /**
    * Deletes a previously sent webhook message.
    * @param messageLinkOrId The full message link (e.g., from Discord UI) or just the message ID of the message to delete.
-   * @throws {Error} If the deletion fails.
+   * @throws {RequestError} If the deletion fails due to a network or Discord API error.
+   * @throws {WebhookError} For other unexpected errors during deletion.
    */
   public async delete(messageLinkOrId: string) {
     let messageId: string;
@@ -220,13 +340,21 @@ export class Webhook {
 
     const url = `/messages/${messageId}`;
 
-    await this.requestClient.send(
-      'DELETE',
-      undefined,
-      {
-        'Content-Type': 'application/json',
-      },
-      url
-    );
+    try {
+      await this.requestClient.send(
+        'DELETE',
+        undefined,
+        { 'Content-Type': 'application/json' },
+        url
+      );
+    } catch (error) {
+      if (error instanceof RequestError) {
+        throw error; // Re-throw RequestError directly
+      } else {
+        throw new WebhookError(
+          `An unexpected error occurred during message deletion: ${String(error)}`
+        );
+      }
+    }
   }
 }

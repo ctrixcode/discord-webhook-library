@@ -1,5 +1,5 @@
 import { Webhook, Message, Embed, Field } from '../src';
-import { ZodError } from 'zod';
+import { ValidationError } from '../src/errors';
 import axios from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -144,7 +144,7 @@ describe('Discord Webhook Library', () => {
     const embed = new Embed(); // No content
     const message = new Message({ embeds: [embed] });
     webhook.addMessage(message);
-    await expect(webhook.send()).rejects.toThrow(ZodError);
+    await expect(webhook.send()).rejects.toThrow(ValidationError);
     expect(mockedAxios.request).not.toHaveBeenCalled();
   });
 
@@ -152,7 +152,7 @@ describe('Discord Webhook Library', () => {
     const embed = new Embed().setURL('not-a-valid-url');
     const message = new Message({ embeds: [embed] });
     webhook.addMessage(message);
-    await expect(webhook.send()).rejects.toThrow(ZodError);
+    await expect(webhook.send()).rejects.toThrow(ValidationError);
     expect(mockedAxios.request).not.toHaveBeenCalled(); // Should not make a request if validation fails
   });
 

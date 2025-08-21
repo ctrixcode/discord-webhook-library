@@ -1,4 +1,5 @@
 import { AxiosError, AxiosInstance } from 'axios';
+import { RequestError } from '../errors';
 
 /**
  * Delays the execution of the code for a specified number of seconds.
@@ -50,8 +51,6 @@ export class Request {
         headers,
       });
 
-      const result = request.data;
-
       // Basic rate-limiting handling (Discord specific: 429 status, x-ratelimit-reset-after header)
       if (request.status === 429 && this.retries <= 60) {
         this.retries++;
@@ -64,17 +63,19 @@ export class Request {
       }
 
       this.retries = 1;
-      return result;
+      return request.data;
     } catch (error) {
       if (error instanceof AxiosError) {
-        // Discord API errors often have a 'message' field in the response data
         const discordErrorMessage =
           error.response?.data?.message || error.message;
-        throw new Error(
-          `Request Error: [${error.code || error.response?.status}] - ${discordErrorMessage}`
+        throw new RequestError(
+          `Request failed: ${discordErrorMessage}`,
+          error.response?.status,
+          discordErrorMessage,
+          error.code || 'UNKNOWN_REQUEST_ERROR'
         );
       } else {
-        throw new Error(`An unknown error occurred: ${JSON.stringify(error)}`);
+        throw new RequestError(`An unknown error occurred: ${String(error)}`);
       }
     }
   }
