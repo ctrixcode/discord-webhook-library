@@ -27,5 +27,5 @@ export default defineConfig({
       },
     },
   },
-  plugins: [dts()],
+  plugins: [dts({ insertTypesEntry: true, outputDir: 'dist' })],
 });
