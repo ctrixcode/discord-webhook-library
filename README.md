@@ -172,3 +172,4 @@ This project uses [Husky](https://typicode.github.io/husky/) for Git hooks to ma
 -   **`pre-push` hook:** Automatically bumps the package version (`patch` version) when pushing to the `main` branch.
     **WARNING:** This will create a new version commit and tag every time you push to `main`. Consider using a dedicated release pipeline in CI/CD for more controlled versioning in production environments.
 
+```
