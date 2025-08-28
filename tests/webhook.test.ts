@@ -3,7 +3,7 @@ import { Message } from '../src/builders/Message';
 import { Embed } from '../src/builders/Embed';
 import { Field } from '../src/components/Field';
 import { ValidationError } from '../src/errors';
-import axios from 'axios';
+import axios, { type AxiosInstance } from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
 import FormData from 'form-data';
@@ -21,18 +21,8 @@ const WEBHOOK_URL =
 
 describe('Discord Webhook Library', () => {
   let webhook: Webhook;
+  let mockAxiosInstance: jest.Mocked<AxiosInstance>; // Declare it here
   const DUMMY_FILE_PATH = path.join(__dirname, 'dummy.txt');
-
-  // Create a mock for an AxiosInstance that will be returned by axios.create
-  const mockAxiosInstance = {
-    request: jest.fn().mockResolvedValue({
-      data: {},
-      status: 204,
-      statusText: 'No Content',
-      headers: {},
-      config: {},
-    }),
-  };
 
   beforeAll(() => {
     // Create a dummy file for sendFile tests
@@ -43,8 +33,19 @@ describe('Discord Webhook Library', () => {
     // Clear all mocks before each test
     jest.clearAllMocks();
 
+    // Create a fresh mock for an AxiosInstance for each test
+    mockAxiosInstance = {
+      // Removed const
+      request: jest.fn().mockResolvedValue({
+        data: {},
+        status: 204,
+        statusText: 'No Content',
+        headers: {},
+        config: {},
+      }),
+    };
     // Mock axios.create to return our mockAxiosInstance
-    mockedAxios.create.mockReturnValue(mockAxiosInstance as AxiosInstance);
+    mockedAxios.create.mockReturnValue(mockAxiosInstance);
 
     webhook = new Webhook(WEBHOOK_URL);
   });
@@ -456,7 +457,7 @@ describe('Discord Webhook Library', () => {
     webhook.addMessage(message);
 
     // Mock the second webhook's request to fail
-    mockAxiosInstance.request
+    (mockAxiosInstance.request as jest.Mock)
       .mockResolvedValueOnce({
         data: {},
         status: 204,

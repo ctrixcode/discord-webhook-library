@@ -6,7 +6,7 @@ This library simplifies the process of constructing the JSON payload for Discord
 
 ## What's New in 0.9.2
 
--   **Multi-webhook support:** The library now fully supports sending messages to multiple webhooks.
+- **Multi-webhook support:** The library now fully supports sending messages to multiple webhooks.
 
 ## Features
 

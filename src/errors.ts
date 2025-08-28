@@ -3,13 +3,37 @@ import { ZodError } from 'zod';
 /**
  * Base error class for all custom errors in the Discord Webhook Library.
  */
+export interface SendFailureDetail {
+  webhookUrl: string;
+  messagePayload?: Record<string, unknown>; // Optional, as not all errors might have a message payload
+  filePath?: string; // For sendFile errors
+  error: unknown; // The original error object
+  type:
+    | 'message'
+    | 'file'
+    | 'info'
+    | 'success'
+    | 'warning'
+    | 'error'
+    | 'delete'; // Type of operation that failed
+}
+
+/**
+ * Base error class for all custom errors in the Discord Webhook Library.
+ */
 export class WebhookError extends Error {
   public code: string;
+  public details?: SendFailureDetail[]; // New property for structured error details
 
-  constructor(message: string, code: string = 'WEBHOOK_ERROR') {
+  constructor(
+    message: string,
+    code: string = 'WEBHOOK_ERROR',
+    details?: SendFailureDetail[]
+  ) {
     super(message);
     this.name = 'WebhookError';
     this.code = code;
+    this.details = details;
     Object.setPrototypeOf(this, WebhookError.prototype);
   }
 }

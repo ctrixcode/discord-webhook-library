@@ -6,7 +6,12 @@ import { Request } from './Request';
 import * as fs from 'fs';
 import FormData from 'form-data';
 import { DISCORD_COLORS } from '../constants/colors';
-import { WebhookError, ValidationError, FileSystemError } from '../errors';
+import {
+  WebhookError,
+  ValidationError,
+  FileSystemError,
+  SendFailureDetail,
+} from '../errors';
 import { ZodError } from 'zod';
 
 interface WebhookInstance {
@@ -136,7 +141,7 @@ export class Webhook {
     }
 
     const remainingMessages: Message[] = [];
-    const allErrors: unknown[] = [];
+    const allErrors: SendFailureDetail[] = []; // Changed type
 
     for (const webhookInstance of this.webhooks) {
       const requestClient = new Request(webhookInstance.axiosInstance);
@@ -145,7 +150,13 @@ export class Webhook {
           await this._sendOne(message, requestClient);
         } catch (error) {
           remainingMessages.push(message); // Keep message in queue if it failed for any webhook
-          allErrors.push(error);
+          allErrors.push({
+            // Push SendFailureDetail object
+            webhookUrl: webhookInstance.url,
+            messagePayload: message.getPayload(),
+            error: error,
+            type: 'message',
+          });
         }
       }
     }
@@ -154,11 +165,16 @@ export class Webhook {
 
     if (allErrors.length > 0) {
       const errorMessages = allErrors
-        .map((err) => (err instanceof Error ? err.message : String(err)))
+        .map((detail) =>
+          detail.error instanceof Error
+            ? detail.error.message
+            : String(detail.error)
+        )
         .join('\n');
       throw new WebhookError(
         `Failed to send ${allErrors.length} messages to one or more webhooks. Details:\n${errorMessages}`,
-        'BATCH_SEND_FAILURE'
+        'BATCH_SEND_FAILURE',
+        allErrors // Pass the details array
       );
     }
   }
@@ -206,7 +222,7 @@ export class Webhook {
       throw new WebhookError('No webhook URLs configured.', 'NO_WEBHOOK_URLS');
     }
 
-    const allErrors: unknown[] = [];
+    const allErrors: SendFailureDetail[] = [];
 
     for (const webhookInstance of this.webhooks) {
       const form = new FormData();
@@ -216,12 +232,15 @@ export class Webhook {
         fs.accessSync(filePath, fs.constants.R_OK);
         form.append('files[0]', fs.createReadStream(filePath));
       } catch (error) {
-        allErrors.push(
-          new FileSystemError(
+        allErrors.push({
+          webhookUrl: webhookInstance.url,
+          filePath: filePath,
+          error: new FileSystemError(
             `Cannot read file at path: ${filePath}. Original error: ${String(error)}`,
             'FILE_READ_ERROR'
-          )
-        );
+          ),
+          type: 'file',
+        });
         continue; // Skip to next webhook if file cannot be read for this one
       }
 
@@ -233,18 +252,24 @@ export class Webhook {
           MessageSchema.parse(payload);
         } catch (error) {
           if (error instanceof ZodError) {
-            allErrors.push(
-              new ValidationError(
+            allErrors.push({
+              webhookUrl: webhookInstance.url,
+              messagePayload: payload,
+              error: new ValidationError(
                 'Invalid message payload provided for file attachment.',
                 error.issues
-              )
-            );
+              ),
+              type: 'file',
+            });
           } else {
-            allErrors.push(
-              new WebhookError(
+            allErrors.push({
+              webhookUrl: webhookInstance.url,
+              messagePayload: payload,
+              error: new WebhookError(
                 `An unexpected error occurred during file message validation: ${String(error)}`
-              )
-            );
+              ),
+              type: 'file',
+            });
           }
           continue; // Skip to next webhook if message validation fails
         }
@@ -256,17 +281,28 @@ export class Webhook {
       try {
         await requestClient.send('POST', form);
       } catch (error) {
-        allErrors.push(error);
+        allErrors.push({
+          webhookUrl: webhookInstance.url,
+          messagePayload: message?.getPayload(), // message might be undefined
+          filePath: filePath,
+          error: error,
+          type: 'file',
+        });
       }
     }
 
     if (allErrors.length > 0) {
       const errorMessages = allErrors
-        .map((err) => (err instanceof Error ? err.message : String(err)))
+        .map((detail) =>
+          detail.error instanceof Error
+            ? detail.error.message
+            : String(detail.error)
+        )
         .join('\n');
       throw new WebhookError(
         `Failed to send file to one or more webhooks. Details:\n${errorMessages}`,
-        'FILE_SEND_FAILURE'
+        'FILE_SEND_FAILURE',
+        allErrors // Pass the details array
       );
     }
   }
@@ -287,23 +323,33 @@ export class Webhook {
     if (description) embed.setDescription(description);
     const message = new Message({ embeds: [embed] });
 
-    const allErrors: unknown[] = [];
+    const allErrors: SendFailureDetail[] = [];
     for (const webhookInstance of this.webhooks) {
       const requestClient = new Request(webhookInstance.axiosInstance);
       try {
         await this._sendOne(message, requestClient);
       } catch (error) {
-        allErrors.push(error);
+        allErrors.push({
+          webhookUrl: webhookInstance.url,
+          messagePayload: message.getPayload(),
+          error: error,
+          type: 'info',
+        });
       }
     }
 
     if (allErrors.length > 0) {
       const errorMessages = allErrors
-        .map((err) => (err instanceof Error ? err.message : String(err)))
+        .map((detail) =>
+          detail.error instanceof Error
+            ? detail.error.message
+            : String(detail.error)
+        )
         .join('\n');
       throw new WebhookError(
         `Failed to send info message to one or more webhooks. Details:\n${errorMessages}`,
-        'INFO_SEND_FAILURE'
+        'INFO_SEND_FAILURE',
+        allErrors
       );
     }
   }
@@ -324,23 +370,33 @@ export class Webhook {
     if (description) embed.setDescription(description);
     const message = new Message({ embeds: [embed] });
 
-    const allErrors: unknown[] = [];
+    const allErrors: SendFailureDetail[] = [];
     for (const webhookInstance of this.webhooks) {
       const requestClient = new Request(webhookInstance.axiosInstance);
       try {
         await this._sendOne(message, requestClient);
       } catch (error) {
-        allErrors.push(error);
+        allErrors.push({
+          webhookUrl: webhookInstance.url,
+          messagePayload: message.getPayload(),
+          error: error,
+          type: 'success',
+        });
       }
     }
 
     if (allErrors.length > 0) {
       const errorMessages = allErrors
-        .map((err) => (err instanceof Error ? err.message : String(err)))
+        .map((detail) =>
+          detail.error instanceof Error
+            ? detail.error.message
+            : String(detail.error)
+        )
         .join('\n');
       throw new WebhookError(
         `Failed to send success message to one or more webhooks. Details:\n${errorMessages}`,
-        'SUCCESS_SEND_FAILURE'
+        'SUCCESS_SEND_FAILURE',
+        allErrors
       );
     }
   }
@@ -361,23 +417,33 @@ export class Webhook {
     if (description) embed.setDescription(description);
     const message = new Message({ embeds: [embed] });
 
-    const allErrors: unknown[] = [];
+    const allErrors: SendFailureDetail[] = [];
     for (const webhookInstance of this.webhooks) {
       const requestClient = new Request(webhookInstance.axiosInstance);
       try {
         await this._sendOne(message, requestClient);
       } catch (error) {
-        allErrors.push(error);
+        allErrors.push({
+          webhookUrl: webhookInstance.url,
+          messagePayload: message.getPayload(),
+          error: error,
+          type: 'warning',
+        });
       }
     }
 
     if (allErrors.length > 0) {
       const errorMessages = allErrors
-        .map((err) => (err instanceof Error ? err.message : String(err)))
+        .map((detail) =>
+          detail.error instanceof Error
+            ? detail.error.message
+            : String(detail.error)
+        )
         .join('\n');
       throw new WebhookError(
         `Failed to send warning message to one or more webhooks. Details:\n${errorMessages}`,
-        'WARNING_SEND_FAILURE'
+        'WARNING_SEND_FAILURE',
+        allErrors
       );
     }
   }
@@ -398,23 +464,33 @@ export class Webhook {
     if (description) embed.setDescription(description);
     const message = new Message({ embeds: [embed] });
 
-    const allErrors: unknown[] = [];
+    const allErrors: SendFailureDetail[] = [];
     for (const webhookInstance of this.webhooks) {
       const requestClient = new Request(webhookInstance.axiosInstance);
       try {
         await this._sendOne(message, requestClient);
       } catch (error) {
-        allErrors.push(error);
+        allErrors.push({
+          webhookUrl: webhookInstance.url,
+          messagePayload: message.getPayload(),
+          error: error,
+          type: 'error',
+        });
       }
     }
 
     if (allErrors.length > 0) {
       const errorMessages = allErrors
-        .map((err) => (err instanceof Error ? err.message : String(err)))
+        .map((detail) =>
+          detail.error instanceof Error
+            ? detail.error.message
+            : String(detail.error)
+        )
         .join('\n');
       throw new WebhookError(
         `Failed to send error message to one or more webhooks. Details:\n${errorMessages}`,
-        'ERROR_SEND_FAILURE'
+        'ERROR_SEND_FAILURE',
+        allErrors
       );
     }
   }
@@ -439,7 +515,7 @@ export class Webhook {
     }
 
     const url = `/messages/${messageId}`;
-    const allErrors: unknown[] = [];
+    const allErrors: SendFailureDetail[] = [];
 
     for (const webhookInstance of this.webhooks) {
       const requestClient = new Request(webhookInstance.axiosInstance);
@@ -451,17 +527,26 @@ export class Webhook {
           url
         );
       } catch (error) {
-        allErrors.push(error);
+        allErrors.push({
+          webhookUrl: webhookInstance.url,
+          error: error,
+          type: 'delete',
+        });
       }
     }
 
     if (allErrors.length > 0) {
       const errorMessages = allErrors
-        .map((err) => (err instanceof Error ? err.message : String(err)))
+        .map((detail) =>
+          detail.error instanceof Error
+            ? detail.error.message
+            : String(detail.error)
+        )
         .join('\n');
       throw new WebhookError(
         `Failed to delete message from one or more webhooks. Details:\n${errorMessages}`,
-        'DELETE_MESSAGE_FAILURE'
+        'DELETE_MESSAGE_FAILURE',
+        allErrors
       );
     }
   }
