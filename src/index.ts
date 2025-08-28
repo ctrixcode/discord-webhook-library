@@ -8,10 +8,10 @@ import { Thumbnail } from './components/Thumbnail';
 
 /**
  * Creates a new Webhook instance.
- * @param url The full Discord webhook URL.
+ * @param url The full Discord webhook URL or an array of URLs.
  * @returns A new Webhook instance.
  */
-export function createWebhook(url: string): Webhook {
+export function createWebhook(url: string | string[]): Webhook {
   return new Webhook(url);
 }
 

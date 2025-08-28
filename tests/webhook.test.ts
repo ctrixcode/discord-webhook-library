@@ -1,4 +1,7 @@
-import { Webhook, Message, Embed, Field } from '../src';
+import { Webhook } from '../src/client/Webhook';
+import { Message } from '../src/builders/Message';
+import { Embed } from '../src/builders/Embed';
+import { Field } from '../src/components/Field';
 import { ValidationError } from '../src/errors';
 import axios from 'axios';
 import * as fs from 'fs';
@@ -290,5 +293,134 @@ describe('Discord Webhook Library', () => {
         }),
       })
     );
+  });
+
+  it('should initialize with multiple webhook URLs', () => {
+    const WEBHOOK_URL_2 =
+      'https://discord.com/api/webhooks/987654321098765432/zyxwuvtsrqponmlkjihgfedcbaZYXWVUTSRQPONMLKJIHGFEDCBA9876543210';
+    const multiWebhook = new Webhook([WEBHOOK_URL, WEBHOOK_URL_2]);
+    expect(multiWebhook.getWebhookCount()).toBe(2);
+    expect(multiWebhook.getWebhookUrls()).toEqual([WEBHOOK_URL, WEBHOOK_URL_2]);
+  });
+
+  it('should add webhook URLs dynamically', () => {
+    const WEBHOOK_URL_2 =
+      'https://discord.com/api/webhooks/987654321098765432/zyxwuvtsrqponmlkjihgfedcbaZYXWVUTSRQPONMLKJIHGFEDCBA9876543210';
+    webhook.addWebhookUrl(WEBHOOK_URL_2);
+    expect(webhook.getWebhookCount()).toBe(2);
+    expect(webhook.getWebhookUrls()).toEqual([WEBHOOK_URL, WEBHOOK_URL_2]);
+  });
+
+  it('should send a message to multiple webhooks', async () => {
+    const WEBHOOK_URL_2 =
+      'https://discord.com/api/webhooks/987654321098765432/zyxwuvtsrqponmlkjihgfedcbaZYXWVUTSRQPONMLKJIHGFEDCBA9876543210';
+    webhook.addWebhookUrl(WEBHOOK_URL_2);
+    const message = new Message({ content: 'Message to multiple webhooks!' });
+    webhook.addMessage(message);
+
+    await expect(webhook.send()).resolves.not.toThrow();
+    expect(mockedAxios.request).toHaveBeenCalledTimes(2); // Called once for each webhook
+    expect(webhook.getPayloads().length).toBe(0); // Queue should be empty after successful send
+
+    // Verify calls for each webhook
+    expect(mockedAxios.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: `https://discord.com/api/webhooks/123456789012345678/abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890-_`,
+        data: expect.objectContaining({
+          content: 'Message to multiple webhooks!',
+        }),
+      })
+    );
+    expect(mockedAxios.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: `https://discord.com/api/webhooks/987654321098765432/zyxwuvtsrqponmlkjihgfedcbaZYXWVUTSRQPONMLKJIHGFEDCBA9876543210`,
+        data: expect.objectContaining({
+          content: 'Message to multiple webhooks!',
+        }),
+      })
+    );
+  });
+
+  it('should handle send failure for one of multiple webhooks', async () => {
+    const WEBHOOK_URL_2 =
+      'https://discord.com/api/webhooks/987654321098765432/zyxwuvtsrqponmlkjihgfedcbaZYXWVUTSRQPONMLKJIHGFEDCBA9876543210';
+    webhook.addWebhookUrl(WEBHOOK_URL_2);
+    const message = new Message({
+      content: 'Message to multiple webhooks with one failure!',
+    });
+    webhook.addMessage(message);
+
+    // Mock the second webhook's request to fail
+    mockedAxios.request
+      .mockResolvedValueOnce({
+        data: {},
+        status: 204,
+        statusText: 'No Content',
+        headers: {},
+        config: {},
+      }) // First webhook succeeds
+      .mockRejectedValueOnce(
+        new Error('Simulated network error for second webhook')
+      ); // Second webhook fails
+
+    await expect(webhook.send()).rejects.toThrow(
+      'Failed to send 1 messages to one or more webhooks.'
+    );
+    expect(mockedAxios.request).toHaveBeenCalledTimes(2); // Still attempts to send to both
+    expect(webhook.getPayloads().length).toBe(1); // Message should remain in queue
+  });
+
+  it('should send file to multiple webhooks', async () => {
+    const WEBHOOK_URL_2 =
+      'https://discord.com/api/webhooks/987654321098765432/zyxwuvtsrqponmlkjihgfedcbaZYXWVUTSRQPONMLKJIHGFEDCBA9876543210';
+    webhook.addWebhookUrl(WEBHOOK_URL_2);
+
+    await webhook.sendFile(DUMMY_FILE_PATH);
+    expect(mockedAxios.request).toHaveBeenCalledTimes(2); // Called once for each webhook
+  });
+
+  it('should send info message to multiple webhooks', async () => {
+    const WEBHOOK_URL_2 =
+      'https://discord.com/api/webhooks/987654321098765432/zyxwuvtsrqponmlkjihgfedcbaZYXWVUTSRQPONMLKJIHGFEDCBA9876543210';
+    webhook.addWebhookUrl(WEBHOOK_URL_2);
+
+    await webhook.info('Multi-Webhook Info');
+    expect(mockedAxios.request).toHaveBeenCalledTimes(2); // Called once for each webhook
+  });
+
+  it('should send success message to multiple webhooks', async () => {
+    const WEBHOOK_URL_2 =
+      'https://discord.com/api/webhooks/987654321098765432/zyxwuvtsrqponmlkjihgfedcbaZYXWVUTSRQPONMLKJIHGFEDCBA9876543210';
+    webhook.addWebhookUrl(WEBHOOK_URL_2);
+
+    await webhook.success('Multi-Webhook Success');
+    expect(mockedAxios.request).toHaveBeenCalledTimes(2); // Called once for each webhook
+  });
+
+  it('should send warning message to multiple webhooks', async () => {
+    const WEBHOOK_URL_2 =
+      'https://discord.com/api/webhooks/987654321098765432/zyxwuvtsrqponmlkjihgfedcbaZYXWVUTSRQPONMLKJIHGFEDCBA9876543210';
+    webhook.addWebhookUrl(WEBHOOK_URL_2);
+
+    await webhook.warning('Multi-Webhook Warning');
+    expect(mockedAxios.request).toHaveBeenCalledTimes(2); // Called once for each webhook
+  });
+
+  it('should send error message to multiple webhooks', async () => {
+    const WEBHOOK_URL_2 =
+      'https://discord.com/api/webhooks/987654321098765432/zyxwuvtsrqponmlkjihgfedcbaZYXWVUTSRQPONMLKJIHGFEDCBA9876543210';
+    webhook.addWebhookUrl(WEBHOOK_URL_2);
+
+    await webhook.error('Multi-Webhook Error');
+    expect(mockedAxios.request).toHaveBeenCalledTimes(2); // Called once for each webhook
+  });
+
+  it('should delete message from multiple webhooks', async () => {
+    const WEBHOOK_URL_2 =
+      'https://discord.com/api/webhooks/987654321098765432/zyxwuvtsrqponmlkjihgfedcbaZYXWVUTSRQPONMLKJIHGFEDCBA9876543210';
+    webhook.addWebhookUrl(WEBHOOK_URL_2);
+
+    await webhook.delete('1234567890123456789');
+    expect(mockedAxios.request).toHaveBeenCalledTimes(2); // Called once for each webhook
   });
 });
