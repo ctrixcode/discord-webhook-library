@@ -23,24 +23,30 @@ describe('Discord Webhook Library', () => {
   let webhook: Webhook;
   const DUMMY_FILE_PATH = path.join(__dirname, 'dummy.txt');
 
-  beforeAll(() => {
-    // Create a dummy file for sendFile tests
-    fs.writeFileSync(DUMMY_FILE_PATH, 'This is a dummy file for testing.');
-
-    // Mock axios.create().request to simulate successful responses
-    mockedAxios.create.mockReturnThis(); // Mock create() to return the mocked axios itself
-    mockedAxios.request.mockResolvedValue({
+  // Create a mock for an AxiosInstance that will be returned by axios.create
+  const mockAxiosInstance = {
+    request: jest.fn().mockResolvedValue({
       data: {},
       status: 204,
       statusText: 'No Content',
       headers: {},
       config: {},
-    });
+    }),
+  };
+
+  beforeAll(() => {
+    // Create a dummy file for sendFile tests
+    fs.writeFileSync(DUMMY_FILE_PATH, 'This is a dummy file for testing.');
   });
 
   beforeEach(() => {
+    // Clear all mocks before each test
+    jest.clearAllMocks();
+
+    // Mock axios.create to return our mockAxiosInstance
+    mockedAxios.create.mockReturnValue(mockAxiosInstance as AxiosInstance);
+
     webhook = new Webhook(WEBHOOK_URL);
-    mockedAxios.request.mockClear(); // Clear mock calls before each test
   });
 
   afterAll(() => {
@@ -52,12 +58,19 @@ describe('Discord Webhook Library', () => {
     const message = new Message({ content: 'Hello from Jest!' });
     webhook.addMessage(message);
     await expect(webhook.send()).resolves.not.toThrow();
-    expect(mockedAxios.request).toHaveBeenCalledTimes(1);
-    expect(mockedAxios.request).toHaveBeenCalledWith(
+    expect(mockAxiosInstance.request).toHaveBeenCalledTimes(1);
+    expect(mockAxiosInstance.request).toHaveBeenCalledWith(
       expect.objectContaining({
         method: 'POST',
+        url: undefined, // Expect undefined, as Request passes undefined
         data: expect.objectContaining({ content: 'Hello from Jest!' }),
         headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    // Additionally, verify that axios.create was called with the correct baseURL
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL,
       })
     );
   });
@@ -70,15 +83,21 @@ describe('Discord Webhook Library', () => {
     });
     webhook.addMessage(message);
     await expect(webhook.send()).resolves.not.toThrow();
-    expect(mockedAxios.request).toHaveBeenCalledTimes(1);
-    expect(mockedAxios.request).toHaveBeenCalledWith(
+    expect(mockAxiosInstance.request).toHaveBeenCalledTimes(1);
+    expect(mockAxiosInstance.request).toHaveBeenCalledWith(
       expect.objectContaining({
         method: 'POST',
+        url: undefined,
         data: expect.objectContaining({
           content: 'Message with custom identity!',
           username: 'JestBot',
           avatar_url: 'https://i.imgur.com/AfFp7pu.png',
         }),
+      })
+    );
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL,
       })
     );
   });
@@ -109,10 +128,11 @@ describe('Discord Webhook Library', () => {
     });
     webhook.addMessage(message);
     await expect(webhook.send()).resolves.not.toThrow();
-    expect(mockedAxios.request).toHaveBeenCalledTimes(1);
-    expect(mockedAxios.request).toHaveBeenCalledWith(
+    expect(mockAxiosInstance.request).toHaveBeenCalledTimes(1);
+    expect(mockAxiosInstance.request).toHaveBeenCalledWith(
       expect.objectContaining({
         method: 'POST',
+        url: undefined,
         data: expect.objectContaining({
           content: 'Message with embed',
           embeds: expect.arrayContaining([
@@ -123,6 +143,11 @@ describe('Discord Webhook Library', () => {
         }),
       })
     );
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL,
+      })
+    );
   });
 
   it('should send a message without content but with a valid embed', async () => {
@@ -130,15 +155,21 @@ describe('Discord Webhook Library', () => {
     const message = new Message({ embeds: [embed] });
     webhook.addMessage(message);
     await expect(webhook.send()).resolves.not.toThrow();
-    expect(mockedAxios.request).toHaveBeenCalledTimes(1);
-    expect(mockedAxios.request).toHaveBeenCalledWith(
+    expect(mockAxiosInstance.request).toHaveBeenCalledTimes(1);
+    expect(mockAxiosInstance.request).toHaveBeenCalledWith(
       expect.objectContaining({
         method: 'POST',
+        url: undefined,
         data: expect.objectContaining({
           embeds: expect.arrayContaining([
             expect.objectContaining({ title: 'Valid Embed' }),
           ]),
         }),
+      })
+    );
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL,
       })
     );
   });
@@ -148,7 +179,7 @@ describe('Discord Webhook Library', () => {
     const message = new Message({ embeds: [embed] });
     webhook.addMessage(message);
     await expect(webhook.send()).rejects.toThrow(ValidationError);
-    expect(mockedAxios.request).not.toHaveBeenCalled();
+    expect(mockAxiosInstance.request).not.toHaveBeenCalled();
   });
 
   it('should reject with a validation error for invalid embed URL', async () => {
@@ -156,7 +187,7 @@ describe('Discord Webhook Library', () => {
     const message = new Message({ embeds: [embed] });
     webhook.addMessage(message);
     await expect(webhook.send()).rejects.toThrow(ValidationError);
-    expect(mockedAxios.request).not.toHaveBeenCalled(); // Should not make a request if validation fails
+    expect(mockAxiosInstance.request).not.toHaveBeenCalled(); // Should not make a request if validation fails
   });
 
   it('should send multiple messages in a batch successfully', async () => {
@@ -165,7 +196,12 @@ describe('Discord Webhook Library', () => {
     webhook.addMessage(message1).addMessage(message2);
     await expect(webhook.send()).resolves.not.toThrow();
     expect(webhook.getPayloads().length).toBe(0); // Queue should be empty
-    expect(mockedAxios.request).toHaveBeenCalledTimes(2);
+    expect(mockAxiosInstance.request).toHaveBeenCalledTimes(2);
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL,
+      })
+    );
   });
 
   it('should edit an existing message successfully', async () => {
@@ -176,8 +212,8 @@ describe('Discord Webhook Library', () => {
     webhook.addMessage(message);
     await expect(webhook.send()).resolves.not.toThrow();
 
-    expect(mockedAxios.request).toHaveBeenCalledTimes(1);
-    expect(mockedAxios.request).toHaveBeenCalledWith(
+    expect(mockAxiosInstance.request).toHaveBeenCalledTimes(1);
+    expect(mockAxiosInstance.request).toHaveBeenCalledWith(
       expect.objectContaining({
         method: 'PATCH',
         url: '/messages/1234567890123456789',
@@ -186,15 +222,26 @@ describe('Discord Webhook Library', () => {
         }),
       })
     );
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL,
+      })
+    );
   });
 
   it('should send a file successfully', async () => {
     await webhook.sendFile(DUMMY_FILE_PATH);
-    expect(mockedAxios.request).toHaveBeenCalledTimes(1);
-    expect(mockedAxios.request).toHaveBeenCalledWith(
+    expect(mockAxiosInstance.request).toHaveBeenCalledTimes(1);
+    expect(mockAxiosInstance.request).toHaveBeenCalledWith(
       expect.objectContaining({
         method: 'POST',
+        url: undefined,
         data: expect.any(FormData),
+      })
+    );
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL,
       })
     );
   });
@@ -202,11 +249,17 @@ describe('Discord Webhook Library', () => {
   it('should send a file with a message successfully', async () => {
     const message = new Message({ content: 'File with message!' });
     await webhook.sendFile(DUMMY_FILE_PATH, message);
-    expect(mockedAxios.request).toHaveBeenCalledTimes(1);
-    expect(mockedAxios.request).toHaveBeenCalledWith(
+    expect(mockAxiosInstance.request).toHaveBeenCalledTimes(1);
+    expect(mockAxiosInstance.request).toHaveBeenCalledWith(
       expect.objectContaining({
         method: 'POST',
+        url: undefined,
         data: expect.any(FormData),
+      })
+    );
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL,
       })
     );
     // Further inspection of FormData content is complex with Jest mocks
@@ -223,10 +276,11 @@ describe('Discord Webhook Library', () => {
   // Helper method tests
   it('should send an info message', async () => {
     await webhook.info('Info Title', 'Info Description');
-    expect(mockedAxios.request).toHaveBeenCalledTimes(1);
-    expect(mockedAxios.request).toHaveBeenCalledWith(
+    expect(mockAxiosInstance.request).toHaveBeenCalledTimes(1);
+    expect(mockAxiosInstance.request).toHaveBeenCalledWith(
       expect.objectContaining({
         method: 'POST',
+        url: undefined,
         data: expect.objectContaining({
           embeds: expect.arrayContaining([
             expect.objectContaining({
@@ -238,14 +292,20 @@ describe('Discord Webhook Library', () => {
         }),
       })
     );
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL,
+      })
+    );
   });
 
   it('should send a success message', async () => {
     await webhook.success('Success Title');
-    expect(mockedAxios.request).toHaveBeenCalledTimes(1);
-    expect(mockedAxios.request).toHaveBeenCalledWith(
+    expect(mockAxiosInstance.request).toHaveBeenCalledTimes(1);
+    expect(mockAxiosInstance.request).toHaveBeenCalledWith(
       expect.objectContaining({
         method: 'POST',
+        url: undefined,
         data: expect.objectContaining({
           embeds: expect.arrayContaining([
             expect.objectContaining({
@@ -256,14 +316,20 @@ describe('Discord Webhook Library', () => {
         }),
       })
     );
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL,
+      })
+    );
   });
 
   it('should send a warning message', async () => {
     await webhook.warning('Warning Title', 'Warning Description');
-    expect(mockedAxios.request).toHaveBeenCalledTimes(1);
-    expect(mockedAxios.request).toHaveBeenCalledWith(
+    expect(mockAxiosInstance.request).toHaveBeenCalledTimes(1);
+    expect(mockAxiosInstance.request).toHaveBeenCalledWith(
       expect.objectContaining({
         method: 'POST',
+        url: undefined,
         data: expect.objectContaining({
           embeds: expect.arrayContaining([
             expect.objectContaining({
@@ -275,14 +341,20 @@ describe('Discord Webhook Library', () => {
         }),
       })
     );
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL,
+      })
+    );
   });
 
   it('should send an error message', async () => {
     await webhook.error('Error Title');
-    expect(mockedAxios.request).toHaveBeenCalledTimes(1);
-    expect(mockedAxios.request).toHaveBeenCalledWith(
+    expect(mockAxiosInstance.request).toHaveBeenCalledTimes(1);
+    expect(mockAxiosInstance.request).toHaveBeenCalledWith(
       expect.objectContaining({
         method: 'POST',
+        url: undefined,
         data: expect.objectContaining({
           embeds: expect.arrayContaining([
             expect.objectContaining({
@@ -293,6 +365,11 @@ describe('Discord Webhook Library', () => {
         }),
       })
     );
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL,
+      })
+    );
   });
 
   it('should initialize with multiple webhook URLs', () => {
@@ -301,6 +378,17 @@ describe('Discord Webhook Library', () => {
     const multiWebhook = new Webhook([WEBHOOK_URL, WEBHOOK_URL_2]);
     expect(multiWebhook.getWebhookCount()).toBe(2);
     expect(multiWebhook.getWebhookUrls()).toEqual([WEBHOOK_URL, WEBHOOK_URL_2]);
+    expect(mockedAxios.create).toHaveBeenCalledTimes(3);
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL,
+      })
+    );
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL_2,
+      })
+    );
   });
 
   it('should add webhook URLs dynamically', () => {
@@ -309,6 +397,12 @@ describe('Discord Webhook Library', () => {
     webhook.addWebhookUrl(WEBHOOK_URL_2);
     expect(webhook.getWebhookCount()).toBe(2);
     expect(webhook.getWebhookUrls()).toEqual([WEBHOOK_URL, WEBHOOK_URL_2]);
+    expect(mockedAxios.create).toHaveBeenCalledTimes(2);
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL_2,
+      })
+    );
   });
 
   it('should send a message to multiple webhooks', async () => {
@@ -319,24 +413,35 @@ describe('Discord Webhook Library', () => {
     webhook.addMessage(message);
 
     await expect(webhook.send()).resolves.not.toThrow();
-    expect(mockedAxios.request).toHaveBeenCalledTimes(2); // Called once for each webhook
+    expect(mockAxiosInstance.request).toHaveBeenCalledTimes(2); // Called once for each webhook
     expect(webhook.getPayloads().length).toBe(0); // Queue should be empty after successful send
 
     // Verify calls for each webhook
-    expect(mockedAxios.request).toHaveBeenCalledWith(
+    expect(mockAxiosInstance.request).toHaveBeenCalledWith(
       expect.objectContaining({
-        baseURL: `https://discord.com/api/webhooks/123456789012345678/abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890-_`,
+        url: undefined,
         data: expect.objectContaining({
           content: 'Message to multiple webhooks!',
         }),
       })
     );
-    expect(mockedAxios.request).toHaveBeenCalledWith(
+    expect(mockAxiosInstance.request).toHaveBeenCalledWith(
       expect.objectContaining({
-        baseURL: `https://discord.com/api/webhooks/987654321098765432/zyxwuvtsrqponmlkjihgfedcbaZYXWVUTSRQPONMLKJIHGFEDCBA9876543210`,
+        url: undefined,
         data: expect.objectContaining({
           content: 'Message to multiple webhooks!',
         }),
+      })
+    );
+    expect(mockedAxios.create).toHaveBeenCalledTimes(2);
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL,
+      })
+    );
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL_2,
       })
     );
   });
@@ -351,7 +456,7 @@ describe('Discord Webhook Library', () => {
     webhook.addMessage(message);
 
     // Mock the second webhook's request to fail
-    mockedAxios.request
+    mockAxiosInstance.request
       .mockResolvedValueOnce({
         data: {},
         status: 204,
@@ -366,8 +471,19 @@ describe('Discord Webhook Library', () => {
     await expect(webhook.send()).rejects.toThrow(
       'Failed to send 1 messages to one or more webhooks.'
     );
-    expect(mockedAxios.request).toHaveBeenCalledTimes(2); // Still attempts to send to both
+    expect(mockAxiosInstance.request).toHaveBeenCalledTimes(2); // Still attempts to send to both
     expect(webhook.getPayloads().length).toBe(1); // Message should remain in queue
+    expect(mockedAxios.create).toHaveBeenCalledTimes(2);
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL,
+      })
+    );
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL_2,
+      })
+    );
   });
 
   it('should send file to multiple webhooks', async () => {
@@ -376,7 +492,24 @@ describe('Discord Webhook Library', () => {
     webhook.addWebhookUrl(WEBHOOK_URL_2);
 
     await webhook.sendFile(DUMMY_FILE_PATH);
-    expect(mockedAxios.request).toHaveBeenCalledTimes(2); // Called once for each webhook
+    expect(mockAxiosInstance.request).toHaveBeenCalledTimes(2); // Called once for each webhook
+    expect(mockAxiosInstance.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: undefined,
+        data: expect.any(FormData),
+      })
+    );
+    expect(mockedAxios.create).toHaveBeenCalledTimes(2);
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL,
+      })
+    );
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL_2,
+      })
+    );
   });
 
   it('should send info message to multiple webhooks', async () => {
@@ -385,7 +518,30 @@ describe('Discord Webhook Library', () => {
     webhook.addWebhookUrl(WEBHOOK_URL_2);
 
     await webhook.info('Multi-Webhook Info');
-    expect(mockedAxios.request).toHaveBeenCalledTimes(2); // Called once for each webhook
+    expect(mockAxiosInstance.request).toHaveBeenCalledTimes(2); // Called once for each webhook
+    expect(mockAxiosInstance.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: undefined,
+        data: expect.objectContaining({
+          embeds: expect.arrayContaining([
+            expect.objectContaining({
+              title: 'Multi-Webhook Info',
+            }),
+          ]),
+        }),
+      })
+    );
+    expect(mockedAxios.create).toHaveBeenCalledTimes(2);
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL,
+      })
+    );
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL_2,
+      })
+    );
   });
 
   it('should send success message to multiple webhooks', async () => {
@@ -394,7 +550,30 @@ describe('Discord Webhook Library', () => {
     webhook.addWebhookUrl(WEBHOOK_URL_2);
 
     await webhook.success('Multi-Webhook Success');
-    expect(mockedAxios.request).toHaveBeenCalledTimes(2); // Called once for each webhook
+    expect(mockAxiosInstance.request).toHaveBeenCalledTimes(2); // Called once for each webhook
+    expect(mockAxiosInstance.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: undefined,
+        data: expect.objectContaining({
+          embeds: expect.arrayContaining([
+            expect.objectContaining({
+              title: 'Multi-Webhook Success',
+            }),
+          ]),
+        }),
+      })
+    );
+    expect(mockedAxios.create).toHaveBeenCalledTimes(2);
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL,
+      })
+    );
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL_2,
+      })
+    );
   });
 
   it('should send warning message to multiple webhooks', async () => {
@@ -403,7 +582,30 @@ describe('Discord Webhook Library', () => {
     webhook.addWebhookUrl(WEBHOOK_URL_2);
 
     await webhook.warning('Multi-Webhook Warning');
-    expect(mockedAxios.request).toHaveBeenCalledTimes(2); // Called once for each webhook
+    expect(mockAxiosInstance.request).toHaveBeenCalledTimes(2); // Called once for each webhook
+    expect(mockAxiosInstance.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: undefined,
+        data: expect.objectContaining({
+          embeds: expect.arrayContaining([
+            expect.objectContaining({
+              title: 'Multi-Webhook Warning',
+            }),
+          ]),
+        }),
+      })
+    );
+    expect(mockedAxios.create).toHaveBeenCalledTimes(2);
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL,
+      })
+    );
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL_2,
+      })
+    );
   });
 
   it('should send error message to multiple webhooks', async () => {
@@ -412,7 +614,30 @@ describe('Discord Webhook Library', () => {
     webhook.addWebhookUrl(WEBHOOK_URL_2);
 
     await webhook.error('Multi-Webhook Error');
-    expect(mockedAxios.request).toHaveBeenCalledTimes(2); // Called once for each webhook
+    expect(mockAxiosInstance.request).toHaveBeenCalledTimes(2); // Called once for each webhook
+    expect(mockAxiosInstance.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: undefined,
+        data: expect.objectContaining({
+          embeds: expect.arrayContaining([
+            expect.objectContaining({
+              title: 'Multi-Webhook Error',
+            }),
+          ]),
+        }),
+      })
+    );
+    expect(mockedAxios.create).toHaveBeenCalledTimes(2);
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL,
+      })
+    );
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL_2,
+      })
+    );
   });
 
   it('should delete message from multiple webhooks', async () => {
@@ -421,6 +646,23 @@ describe('Discord Webhook Library', () => {
     webhook.addWebhookUrl(WEBHOOK_URL_2);
 
     await webhook.delete('1234567890123456789');
-    expect(mockedAxios.request).toHaveBeenCalledTimes(2); // Called once for each webhook
+    expect(mockAxiosInstance.request).toHaveBeenCalledTimes(2); // Called once for each webhook
+    expect(mockAxiosInstance.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'DELETE',
+        url: '/messages/1234567890123456789',
+      })
+    );
+    expect(mockedAxios.create).toHaveBeenCalledTimes(2);
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL,
+      })
+    );
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: WEBHOOK_URL_2,
+      })
+    );
   });
 });

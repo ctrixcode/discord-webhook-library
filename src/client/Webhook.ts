@@ -188,7 +188,7 @@ export class Webhook {
       {
         'Content-Type': 'application/json',
       },
-      url
+      url === '' ? undefined : url
     );
   }
 

@@ -21,7 +21,7 @@
     "build": "vite build",
     "serve": "vite preview",
     "format": "prettier --write .",
-    "lint": "eslint . --ext .ts",
+    "lint": "eslint . --ext .ts --fix",
     "test": "jest --passWithNoTests",
     "prepare": "husky"
   },
@@ -46,8 +46,8 @@
   },
   "lint-staged": {
     "*.ts": [
-      "npm run format",
-      "npm run lint"
+      "npm run lint",
+      "npm run format"
     ]
   },
   "dependencies": {
