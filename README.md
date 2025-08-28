@@ -4,6 +4,10 @@ A powerful and easy-to-use library for creating and sending richly formatted mes
 
 This library simplifies the process of constructing the JSON payload for Discord webhooks, providing a clean and intuitive interface for all supported features. It is designed to mirror the structure and capabilities of similar tools, allowing you to build complex messages with ease.
 
+## What's New in 0.9.2
+
+-   **Multi-webhook support:** The library now fully supports sending messages to multiple webhooks.
+
 ## Features
 
 - **Improved Error Handling:** Errors are now thrown as custom classes (`WebhookError`, `ValidationError`, `RequestError`, `FileSystemError`) providing more context and easier programmatic handling.

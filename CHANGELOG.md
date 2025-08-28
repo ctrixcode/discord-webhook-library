@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.9.2
+
+### Added
+
+- Multi-webhook support.
+
+### Fixed
+
+- Addressed line ending inconsistencies by configuring Git's `core.autocrlf` and adding a `.gitattributes` file.
+
+### Changed
+
+- Separated `lint` and `lint:fix` npm scripts for clearer distinction between linting and auto-fixing.
+- Updated `lint-staged` configuration to use `npm run lint:fix` for automatic linting fixes on commit.
+
 ## 0.9.0
 
 ### Added
