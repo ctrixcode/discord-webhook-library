@@ -1,7 +1,7 @@
 {
   "name": "discord-webhook-library",
   "private": false,
-  "version": "0.9.3",
+  "version": "0.9.4",
   "type": "module",
   "main": "./dist/discord-webhook-library.cjs",
   "module": "./dist/discord-webhook-library.es.js",
