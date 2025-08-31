@@ -14,7 +14,7 @@ import {
 } from '../errors';
 import { ZodError } from 'zod';
 
-interface WebhookInstance {
+export interface WebhookInstance {
   id: string;
   token: string;
   url: string;

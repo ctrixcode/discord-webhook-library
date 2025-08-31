@@ -1,4 +1,4 @@
-import { Webhook } from './client/Webhook';
+import { Webhook, WebhookInstance } from './client/Webhook';
 import { Message, MessageOptions } from './builders/Message';
 import { Embed, AuthorOptions } from './builders/Embed';
 import { Field } from './components/Field';
@@ -27,4 +27,9 @@ export {
   WebhookError,
 };
 
-export type { MessageOptions, AuthorOptions, SendFailureDetail };
+export type {
+  MessageOptions,
+  AuthorOptions,
+  SendFailureDetail,
+  WebhookInstance,
+};
