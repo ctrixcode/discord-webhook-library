@@ -30,9 +30,11 @@ export class Webhook {
    * @param url The full Discord webhook URL or an array of URLs.
    * @throws {WebhookError} If any webhook URL is invalid or empty.
    */
-  constructor(url: string | string[]) {
-    const urls = Array.isArray(url) ? url : [url];
-    urls.forEach((u) => this.addWebhookUrl(u));
+  constructor(url?: string | string[]) {
+    if (url) {
+      const urls = Array.isArray(url) ? url : [url];
+      urls.forEach((u) => this.addWebhookUrl(u));
+    }
   }
 
   /**

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Webhook } from '../src/client/Webhook';
 import { Message } from '../src/builders/Message';
 import { Embed } from '../src/builders/Embed';
@@ -43,7 +44,7 @@ describe('Discord Webhook Library', () => {
         headers: {},
         config: {},
       }),
-    };
+    } as any;
     // Mock axios.create to return our mockAxiosInstance
     mockedAxios.create.mockReturnValue(mockAxiosInstance);
 
@@ -665,5 +666,18 @@ describe('Discord Webhook Library', () => {
         baseURL: WEBHOOK_URL_2,
       })
     );
+  });
+
+  it('should create a webhook instance without an initial URL', () => {
+    const webhookWithoutUrl = new Webhook();
+    expect(webhookWithoutUrl).toBeInstanceOf(Webhook);
+    expect(webhookWithoutUrl.getWebhookCount()).toBe(0);
+  });
+
+  it('should add a webhook URL to an instance created without one', () => {
+    const webhookWithoutUrl = new Webhook();
+    webhookWithoutUrl.addWebhookUrl(WEBHOOK_URL);
+    expect(webhookWithoutUrl.getWebhookCount()).toBe(1);
+    expect(webhookWithoutUrl.getWebhookUrls()).toEqual([WEBHOOK_URL]);
   });
 });

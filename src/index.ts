@@ -12,7 +12,7 @@ import { WebhookError, SendFailureDetail } from './errors';
  * @param url The full Discord webhook URL or an array of URLs.
  * @returns A new Webhook instance.
  */
-export function createWebhook(url: string | string[]): Webhook {
+export function createWebhook(url?: string | string[]): Webhook {
   return new Webhook(url);
 }
 
