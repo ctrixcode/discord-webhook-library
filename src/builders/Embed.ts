@@ -3,7 +3,7 @@ import { Footer } from '../components/Footer';
 import { Image } from '../components/Image';
 import { Thumbnail } from '../components/Thumbnail';
 
-interface AuthorOptions {
+export interface AuthorOptions {
   name: string;
   url?: string;
   icon_url?: string;

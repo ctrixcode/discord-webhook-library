@@ -1,6 +1,6 @@
 import { Embed } from './Embed';
 
-interface MessageOptions {
+export interface MessageOptions {
   content?: string;
   username?: string;
   avatar_url?: string;
