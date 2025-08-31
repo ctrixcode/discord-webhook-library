@@ -5,7 +5,13 @@ import { Field } from './components/Field';
 import { Footer } from './components/Footer';
 import { Image } from './components/Image';
 import { Thumbnail } from './components/Thumbnail';
-import { WebhookError, SendFailureDetail } from './errors';
+import {
+  WebhookError,
+  ValidationError,
+  RequestError,
+  FileSystemError,
+  SendFailureDetail,
+} from './errors';
 
 /**
  * Creates a new Webhook instance.
@@ -25,6 +31,9 @@ export {
   Thumbnail,
   Webhook,
   WebhookError,
+  ValidationError,
+  RequestError,
+  FileSystemError,
 };
 
 export type {
