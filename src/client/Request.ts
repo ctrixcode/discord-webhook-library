@@ -63,17 +63,101 @@ export class Request {
       }
 
       this.retries = 1;
+      if (request.status === 204) {
+        return undefined; // No Content
+      }
       return request.data;
     } catch (error) {
       if (error instanceof AxiosError) {
-        const discordErrorMessage =
-          error.response?.data?.message || error.message;
-        throw new RequestError(
-          `Request failed: ${discordErrorMessage}`,
-          error.response?.status,
-          discordErrorMessage,
-          error.code || 'UNKNOWN_REQUEST_ERROR'
-        );
+        const discordErrorMessage = error.response?.data?.message as
+          | string
+          | undefined;
+        const discordErrorCode = error.response?.data?.code as
+          | string
+          | undefined;
+        const discordErrorErrors = error.response?.data?.errors; // For 50035 errors
+
+        // Handle 429 Too Many Requests (Rate Limit)
+        if (error.response?.status === 429) {
+          const retryAfter =
+            error.response?.data?.retry_after ||
+            parseInt(
+              error.response?.headers?.['x-ratelimit-reset-after'] ?? '3',
+              10
+            );
+
+          if (this.retries <= 60) {
+            // Use the existing retry limit
+            this.retries++;
+            await delay(retryAfter);
+            return this.send(method, data, headers, url);
+          } else {
+            throw new RequestError(
+              `Rate limit exceeded after ${this.retries - 1} retries.`,
+              429,
+              discordErrorMessage,
+              'RATE_LIMIT_EXCEEDED'
+            );
+          }
+        }
+
+        // Handle other 4xx errors
+        switch (error.response?.status) {
+          case 400: {
+            let errorMessage400 = 'Bad Request.';
+            if (Number(discordErrorCode) === 50035) {
+              errorMessage400 = `Invalid Form Body: ${JSON.stringify(discordErrorErrors)}`;
+            } else if (discordErrorMessage) {
+              errorMessage400 = `Bad Request: ${discordErrorMessage}`;
+            }
+            throw new RequestError(
+              errorMessage400,
+              400,
+              discordErrorMessage,
+              discordErrorCode || 'BAD_REQUEST'
+            );
+          }
+          case 401: {
+            throw new RequestError(
+              'Unauthorized: Invalid or missing Authorization header.',
+              401,
+              discordErrorMessage,
+              discordErrorCode || 'UNAUTHORIZED'
+            );
+          }
+          case 403: {
+            throw new RequestError(
+              'Forbidden: You do not have permission to perform this action.',
+              403,
+              discordErrorMessage,
+              discordErrorCode || 'FORBIDDEN'
+            );
+          }
+          case 404: {
+            throw new RequestError(
+              'Webhook not found or invalid.',
+              404,
+              discordErrorMessage,
+              discordErrorCode || 'WEBHOOK_NOT_FOUND'
+            );
+          }
+          case 413: {
+            throw new RequestError(
+              "Payload Too Large: The request payload exceeds Discord's size limit.",
+              413,
+              discordErrorMessage,
+              discordErrorCode || 'PAYLOAD_TOO_LARGE'
+            );
+          }
+          default: {
+            throw new RequestError(
+              `Request failed with status ${error.response?.status || 'unknown'}: ${discordErrorMessage || error.message}`,
+              error.response?.status,
+              discordErrorMessage,
+              discordErrorCode || 'UNKNOWN_REQUEST_ERROR'
+            );
+          }
+        }
       } else {
         throw new RequestError(`An unknown error occurred: ${String(error)}`);
       }
