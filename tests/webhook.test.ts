@@ -680,4 +680,226 @@ describe('Discord Webhook Library', () => {
     expect(webhookWithoutUrl.getWebhookCount()).toBe(1);
     expect(webhookWithoutUrl.getWebhookUrls()).toEqual([WEBHOOK_URL]);
   });
+
+  describe('Network Error Handling', () => {
+    it('should handle ECONNREFUSED network errors', async () => {
+      const networkError = new Error('connect ECONNREFUSED 127.0.0.1:443');
+      (networkError as any).code = 'ECONNREFUSED';
+      mockAxiosInstance.request.mockRejectedValueOnce(networkError);
+
+      const message = new Message({ content: 'Test message' });
+      webhook.addMessage(message);
+
+      await expect(webhook.send()).rejects.toThrow(
+        'connect ECONNREFUSED 127.0.0.1:443'
+      );
+      expect(mockAxiosInstance.request).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle ETIMEDOUT network errors', async () => {
+      const timeoutError = new Error('request timeout');
+      (timeoutError as any).code = 'ETIMEDOUT';
+      mockAxiosInstance.request.mockRejectedValueOnce(timeoutError);
+
+      const message = new Message({ content: 'Test message' });
+      webhook.addMessage(message);
+
+      await expect(webhook.send()).rejects.toThrow('request timeout');
+      expect(mockAxiosInstance.request).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle ENOTFOUND DNS errors', async () => {
+      const dnsError = new Error('getaddrinfo ENOTFOUND discord.com');
+      (dnsError as any).code = 'ENOTFOUND';
+      mockAxiosInstance.request.mockRejectedValueOnce(dnsError);
+
+      const message = new Message({ content: 'Test message' });
+      webhook.addMessage(message);
+
+      await expect(webhook.send()).rejects.toThrow(
+        'getaddrinfo ENOTFOUND discord.com'
+      );
+      expect(mockAxiosInstance.request).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle ECONNRESET connection reset errors', async () => {
+      const resetError = new Error('socket hang up');
+      (resetError as any).code = 'ECONNRESET';
+      mockAxiosInstance.request.mockRejectedValueOnce(resetError);
+
+      const message = new Message({ content: 'Test message' });
+      webhook.addMessage(message);
+
+      await expect(webhook.send()).rejects.toThrow('socket hang up');
+      expect(mockAxiosInstance.request).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle network errors when sending files', async () => {
+      const networkError = new Error('network timeout');
+      (networkError as any).code = 'ETIMEDOUT';
+      mockAxiosInstance.request.mockRejectedValueOnce(networkError);
+
+      await expect(
+        webhook.sendFile(
+          DUMMY_FILE_PATH,
+          new Message({
+            content: 'File attachment',
+          })
+        )
+      ).rejects.toThrow('network timeout');
+      expect(mockAxiosInstance.request).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle certificate validation errors', async () => {
+      const certError = new Error('self signed certificate');
+      (certError as any).code = 'DEPTH_ZERO_SELF_SIGNED_CERT';
+      mockAxiosInstance.request.mockRejectedValueOnce(certError);
+
+      const message = new Message({ content: 'Test message' });
+      webhook.addMessage(message);
+
+      await expect(webhook.send()).rejects.toThrow('self signed certificate');
+      expect(mockAxiosInstance.request).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Complex Integration Scenarios', () => {
+    it('should handle sequential sends with different messages', async () => {
+      const message1 = new Message({ content: 'First message' });
+      const message2 = new Message({ content: 'Second message' });
+
+      webhook.addMessage(message1);
+      await webhook.send();
+
+      webhook.addMessage(message2);
+      await webhook.send();
+
+      expect(mockAxiosInstance.request).toHaveBeenCalledTimes(2);
+    });
+
+    it('should handle mixed content and embed messages in sequence', async () => {
+      const contentMessage = new Message({ content: 'Content only' });
+      const embedMessage = new Message().addEmbed(
+        new Embed().setTitle('Embed only')
+      );
+
+      webhook.addMessage(contentMessage);
+      await webhook.send();
+
+      webhook.addMessage(embedMessage);
+      await webhook.send();
+
+      expect(mockAxiosInstance.request).toHaveBeenCalledTimes(2);
+      expect(mockAxiosInstance.request).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          data: expect.objectContaining({ content: 'Content only' }),
+        })
+      );
+      expect(mockAxiosInstance.request).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          data: expect.objectContaining({
+            embeds: expect.arrayContaining([
+              expect.objectContaining({ title: 'Embed only' }),
+            ]),
+          }),
+        })
+      );
+    });
+
+    it('should handle file upload after regular message', async () => {
+      const message = new Message({ content: 'Regular message' });
+      webhook.addMessage(message);
+      await webhook.send();
+
+      await webhook.sendFile(
+        DUMMY_FILE_PATH,
+        new Message({
+          content: 'File message',
+        })
+      );
+
+      expect(mockAxiosInstance.request).toHaveBeenCalledTimes(2);
+      expect(mockAxiosInstance.request).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          data: expect.objectContaining({ content: 'Regular message' }),
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+      expect(mockAxiosInstance.request).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          method: 'POST',
+          data: expect.any(Object),
+        })
+      );
+      // Verify that the second call has FormData
+      const secondCallData = mockAxiosInstance.request.mock.calls[1][0].data;
+      expect(secondCallData).toBeDefined();
+      expect(typeof secondCallData).toBe('object');
+    });
+
+    it('should handle rapid successive sends', async () => {
+      const messages = [
+        new Message({ content: 'Message 1' }),
+        new Message({ content: 'Message 2' }),
+        new Message({ content: 'Message 3' }),
+      ];
+
+      // Send each message independently
+      for (const msg of messages) {
+        webhook.addMessage(msg);
+        await webhook.send();
+      }
+
+      expect(mockAxiosInstance.request).toHaveBeenCalledTimes(3);
+    });
+
+    it('should handle sends with all helper methods in sequence', async () => {
+      await webhook.info('Info message');
+      await webhook.success('Success message');
+      await webhook.warning('Warning message');
+      await webhook.error('Error message');
+
+      expect(mockAxiosInstance.request).toHaveBeenCalledTimes(4);
+    });
+
+    it('should handle complex message with maximum allowed content', async () => {
+      const maxContent = 'a'.repeat(2000);
+      const message = new Message({
+        content: maxContent,
+        username: 'TestBot',
+        avatar_url: 'https://example.com/avatar.png',
+      });
+
+      const embeds = Array(10)
+        .fill(null)
+        .map((_, i) =>
+          new Embed()
+            .setTitle(`Embed ${i + 1}`)
+            .setDescription(`Description ${i + 1}`)
+        );
+
+      embeds.forEach((embed) => message.addEmbed(embed));
+      webhook.addMessage(message);
+      await webhook.send();
+
+      expect(mockAxiosInstance.request).toHaveBeenCalledTimes(1);
+      expect(mockAxiosInstance.request).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            content: maxContent,
+            username: 'TestBot',
+            avatar_url: 'https://example.com/avatar.png',
+            embeds: expect.arrayContaining([
+              expect.objectContaining({ title: 'Embed 1' }),
+              expect.objectContaining({ title: 'Embed 10' }),
+            ]),
+          }),
+        })
+      );
+    });
+  });
 });
