@@ -70,7 +70,18 @@ export class Request {
     data?: unknown,
     headers?: Record<string, string>,
     url?: string
-  ): Promise<unknown> {
+  ): Promise<{
+    data: unknown;
+    status: number;
+    headers: Record<string, string>;
+    rateLimit?: {
+      remaining?: number;
+      resetAfterSeconds?: number;
+      isGlobal?: boolean;
+      bucket?: string;
+      retryAfterSeconds?: number;
+    };
+  }> {
     try {
       const request = await this.client.request({
         method,
@@ -79,22 +90,35 @@ export class Request {
         headers,
       });
 
-      // Basic rate-limiting handling (Discord specific: 429 status, x-ratelimit-reset-after header)
-      if (request.status === 429 && this.retries <= 60) {
-        this.retries++;
-        const retryAfter = parseInt(
-          request.headers['x-ratelimit-reset-after'] ?? '3',
-          10
-        );
-        await delay(retryAfter);
-        return this.send(method, data, headers, url);
-      }
+      // Parse rate-limit headers present on successful responses too
+      const rlRemainingRaw = request.headers['x-ratelimit-remaining'];
+      const rlResetAfterRaw = request.headers['x-ratelimit-reset-after'];
+      const rlGlobalRaw = request.headers['x-ratelimit-global'];
+      const rlBucket = request.headers['x-ratelimit-bucket'];
+
+      const rateLimit =
+        rlRemainingRaw !== undefined || rlResetAfterRaw !== undefined
+          ? {
+              remaining:
+                rlRemainingRaw !== undefined
+                  ? Number(rlRemainingRaw)
+                  : undefined,
+              resetAfterSeconds:
+                rlResetAfterRaw !== undefined
+                  ? Number(rlResetAfterRaw)
+                  : undefined,
+              isGlobal: rlGlobalRaw !== undefined,
+              bucket: rlBucket as string | undefined,
+            }
+          : undefined;
 
       this.retries = 1;
-      if (request.status === 204) {
-        return undefined; // No Content
-      }
-      return request.data;
+      return {
+        data: request.status === 204 ? undefined : request.data,
+        status: request.status,
+        headers: request.headers as unknown as Record<string, string>,
+        rateLimit,
+      };
     } catch (error) {
       if (error instanceof AxiosError) {
         const discordErrorMessage = error.response?.data?.message as
@@ -107,17 +131,22 @@ export class Request {
 
         // Handle 429 Too Many Requests (Rate Limit)
         if (error.response?.status === 429) {
-          const retryAfter =
-            error.response?.data?.retry_after ||
-            parseInt(
-              error.response?.headers?.['x-ratelimit-reset-after'] ?? '3',
-              10
-            );
+          const retryAfterSeconds =
+            (typeof error.response?.data?.retry_after === 'number'
+              ? error.response?.data?.retry_after
+              : undefined) ||
+            (error.response?.headers?.['retry-after']
+              ? Number(error.response?.headers?.['retry-after'])
+              : undefined) ||
+            (error.response?.headers?.['x-ratelimit-reset-after']
+              ? Number(error.response?.headers?.['x-ratelimit-reset-after'])
+              : undefined) ||
+            3;
 
           if (this.retries <= 60) {
             // Use the existing retry limit
             this.retries++;
-            await delay(retryAfter);
+            await delay(retryAfterSeconds);
             return this.send(method, data, headers, url);
           } else {
             throw new RequestError(
