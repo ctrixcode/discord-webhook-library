@@ -1,6 +1,12 @@
+/**
+ * A single field within an embed, rendered in Discord under the embed body.
+ */
 export class Field {
+  /** Field name (max 256 characters). */
   public name: string;
+  /** Field value (max 1024 characters). */
   public value: string;
+  /** Whether this field is displayed inline with other fields. */
   public inline?: boolean;
 
   /**
@@ -18,6 +24,9 @@ export class Field {
   /**
    * Returns the JSON representation of the field.
    * @returns A plain object representing the field's payload.
+   */
+  /**
+   * Produce the JSON representation expected by Discord's API.
    */
   toJSON() {
     return {

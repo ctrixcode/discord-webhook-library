@@ -3,22 +3,38 @@ import { Footer } from '../components/Footer';
 import { Image } from '../components/Image';
 import { Thumbnail } from '../components/Thumbnail';
 
+/**
+ * Author metadata for an embed.
+ */
 export interface AuthorOptions {
   name: string;
   url?: string;
   icon_url?: string;
 }
 
+/**
+ * Builder for Discord embed objects.
+ */
 export class Embed {
+  /** Title text displayed at the top of the embed (max 256 chars). */
   public title?: string;
+  /** Body text of the embed (max 4096 chars). */
   public description?: string;
+  /** URL that the title links to when clicked. */
   public url?: string;
+  /** Decimal color value for the embed sidebar. */
   public color?: number;
+  /** ISO timestamp string shown in the embed footer. */
   public timestamp?: string;
+  /** Author metadata displayed above the title. */
   public author?: AuthorOptions;
+  /** Footer section containing text and optional icon. */
   public footer?: Footer;
+  /** Main image displayed within the embed body. */
   public image?: Image;
+  /** Small thumbnail displayed to the right side. */
   public thumbnail?: Thumbnail;
+  /** Key-value fields displayed in a grid. */
   public fields: Field[] = [];
 
   /**
@@ -139,6 +155,9 @@ export class Embed {
   /**
    * Returns the JSON representation of the embed.
    * @returns A plain object representing the embed's payload.
+   */
+  /**
+   * Produce the JSON representation expected by Discord's API.
    */
   toJSON() {
     return {

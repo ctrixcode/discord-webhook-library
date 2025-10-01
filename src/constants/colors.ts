@@ -1,3 +1,6 @@
+/**
+ * Common color constants for convenience when building embeds.
+ */
 export const DISCORD_COLORS = {
   INFO: 0x3498db, // Blue
   SUCCESS: 0x2ecc71, // Green

@@ -1,5 +1,8 @@
 import { Embed } from './Embed';
 
+/**
+ * Options used to initialize or update a `Message`.
+ */
 export interface MessageOptions {
   content?: string;
   username?: string;
@@ -11,14 +14,28 @@ export interface MessageOptions {
   editTarget?: string;
 }
 
+/**
+ * Builder for Discord webhook message payloads.
+ *
+ * Chain setters to construct complex messages, then pass the instance to
+ * `Webhook.addMessage` or call `getPayload` to inspect the raw object.
+ */
 export class Message {
+  /** Main text content to send (max 2000 characters). */
   public content?: string;
+  /** Override webhook display name for this message. */
   public username?: string;
+  /** Override webhook avatar URL for this message. */
   public avatar_url?: string;
+  /** If true, message will be read via text-to-speech. */
   public tts?: boolean;
+  /** Embeds to include with the message (max 10). */
   public embeds: Embed[] = [];
+  /** Forum thread name to create when posting in forum channels. */
   public thread_name?: string;
+  /** Advanced message flags bitfield. */
   public flags?: number;
+  /** Target message link or ID to edit when sending this payload. */
   public editTarget?: string;
 
   /**
@@ -139,6 +156,9 @@ export class Message {
   /**
    * Returns the JSON payload for the message.
    * @returns A plain object representing the message's payload.
+   */
+  /**
+   * Produce the Discord-compatible JSON payload for this message.
    */
   getPayload() {
     const payload: Record<string, unknown> = {};
