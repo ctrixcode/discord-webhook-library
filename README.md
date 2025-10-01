@@ -195,7 +195,6 @@ This project uses [Husky](https://typicode.github.io/husky/) for Git hooks:
 ## 📚 Resources
 
 - [Discord Webhook Docs](https://discord.com/developers/docs/resources/webhook)
-- [Gemini Dev](https://github.com/vanshkabra)
 
 ---
 
