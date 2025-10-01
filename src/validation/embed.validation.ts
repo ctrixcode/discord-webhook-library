@@ -1,5 +1,11 @@
 import { z } from 'zod';
 
+/**
+ * Zod schema for validating Discord embed payloads.
+ *
+ * Validates field lengths, URL formats, numeric ranges, timestamp, and
+ * nested objects like author, footer, image, thumbnail, and fields.
+ */
 export const EmbedSchema = z.object({
   title: z.string().max(256).optional(),
   description: z.string().max(4096).optional(),

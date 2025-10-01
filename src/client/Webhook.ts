@@ -14,6 +14,13 @@ import {
 } from '../errors';
 import { ZodError } from 'zod';
 
+/**
+ * Represents a configured Discord webhook instance.
+ *
+ * This is created internally from a full webhook URL and used to
+ * dispatch requests to Discord. Consumers generally do not need to
+ * construct this directly.
+ */
 export interface WebhookInstance {
   id: string;
   token: string;
@@ -21,6 +28,15 @@ export interface WebhookInstance {
   axiosInstance: AxiosInstance;
 }
 
+/**
+ * High-level client for sending messages and files to one or more Discord webhooks.
+ *
+ * Typical usage:
+ * - Create with a webhook URL, or add URLs with `addWebhookUrl`.
+ * - Build messages using the `Message` and `Embed` builders.
+ * - Queue messages with `addMessage`, then call `send` to dispatch.
+ * - Convenience helpers `info`, `success`, `warning`, `error` build colored embeds.
+ */
 export class Webhook {
   private webhooks: WebhookInstance[] = [];
   private messages: Message[] = [];
@@ -128,7 +144,7 @@ export class Webhook {
     for (const message of this.messages) {
       try {
         MessageSchema.parse(message.getPayload());
-      } catch (error) {
+      } catch (error: unknown) {
         if (error instanceof ZodError) {
           throw new ValidationError(
             'Invalid message payload provided.',
@@ -150,7 +166,7 @@ export class Webhook {
       for (const message of this.messages) {
         try {
           await this._sendOne(message, requestClient);
-        } catch (error) {
+        } catch (error: unknown) {
           remainingMessages.push(message); // Keep message in queue if it failed for any webhook
           allErrors.push({
             // Push SendFailureDetail object
@@ -233,7 +249,7 @@ export class Webhook {
       try {
         fs.accessSync(filePath, fs.constants.R_OK);
         form.append('files[0]', fs.createReadStream(filePath));
-      } catch (error) {
+      } catch (error: unknown) {
         allErrors.push({
           webhookUrl: webhookInstance.url,
           filePath: filePath,
@@ -252,7 +268,7 @@ export class Webhook {
         // Validate the message payload before sending
         try {
           MessageSchema.parse(payload);
-        } catch (error) {
+        } catch (error: unknown) {
           if (error instanceof ZodError) {
             allErrors.push({
               webhookUrl: webhookInstance.url,
@@ -282,7 +298,7 @@ export class Webhook {
       const requestClient = new Request(webhookInstance.axiosInstance);
       try {
         await requestClient.send('POST', form);
-      } catch (error) {
+      } catch (error: unknown) {
         allErrors.push({
           webhookUrl: webhookInstance.url,
           messagePayload: message?.getPayload(), // message might be undefined
@@ -330,7 +346,7 @@ export class Webhook {
       const requestClient = new Request(webhookInstance.axiosInstance);
       try {
         await this._sendOne(message, requestClient);
-      } catch (error) {
+      } catch (error: unknown) {
         allErrors.push({
           webhookUrl: webhookInstance.url,
           messagePayload: message.getPayload(),
@@ -377,7 +393,7 @@ export class Webhook {
       const requestClient = new Request(webhookInstance.axiosInstance);
       try {
         await this._sendOne(message, requestClient);
-      } catch (error) {
+      } catch (error: unknown) {
         allErrors.push({
           webhookUrl: webhookInstance.url,
           messagePayload: message.getPayload(),
@@ -424,7 +440,7 @@ export class Webhook {
       const requestClient = new Request(webhookInstance.axiosInstance);
       try {
         await this._sendOne(message, requestClient);
-      } catch (error) {
+      } catch (error: unknown) {
         allErrors.push({
           webhookUrl: webhookInstance.url,
           messagePayload: message.getPayload(),
@@ -471,7 +487,7 @@ export class Webhook {
       const requestClient = new Request(webhookInstance.axiosInstance);
       try {
         await this._sendOne(message, requestClient);
-      } catch (error) {
+      } catch (error: unknown) {
         allErrors.push({
           webhookUrl: webhookInstance.url,
           messagePayload: message.getPayload(),
@@ -528,7 +544,7 @@ export class Webhook {
           { 'Content-Type': 'application/json' },
           url
         );
-      } catch (error) {
+      } catch (error: unknown) {
         allErrors.push({
           webhookUrl: webhookInstance.url,
           error: error,

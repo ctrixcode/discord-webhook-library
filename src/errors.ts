@@ -3,6 +3,9 @@ import { ZodError } from 'zod';
 /**
  * Base error class for all custom errors in the Discord Webhook Library.
  */
+/**
+ * Structured details describing a failed send/delete operation.
+ */
 export interface SendFailureDetail {
   webhookUrl: string;
   messagePayload?: Record<string, unknown>; // Optional, as not all errors might have a message payload
@@ -20,6 +23,9 @@ export interface SendFailureDetail {
 
 /**
  * Base error class for all custom errors in the Discord Webhook Library.
+ */
+/**
+ * Base error for the library. Carries a machine-readable `code` and optional `details`.
  */
 export class WebhookError extends Error {
   public code: string;
@@ -40,6 +46,9 @@ export class WebhookError extends Error {
 
 /**
  * Error class for validation failures, typically wrapping Zod errors.
+ */
+/**
+ * Error representing Zod validation failures.
  */
 export class ValidationError extends WebhookError {
   public issues: ZodError['issues'] | null;
@@ -70,6 +79,9 @@ export class ValidationError extends WebhookError {
 /**
  * Error class for issues during HTTP requests to the Discord API.
  */
+/**
+ * Error for HTTP request failures to the Discord API.
+ */
 export class RequestError extends WebhookError {
   public status: number | undefined;
   public discordMessage: string | undefined;
@@ -90,6 +102,9 @@ export class RequestError extends WebhookError {
 
 /**
  * Error class for file system related operations.
+ */
+/**
+ * Error for file system operation failures (e.g., reading files for upload).
  */
 export class FileSystemError extends WebhookError {
   constructor(message: string, code: string = 'FILE_SYSTEM_ERROR') {

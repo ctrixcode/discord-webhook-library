@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import { EmbedSchema } from './embed.validation';
 
+/**
+ * Zod schema for validating Discord webhook message payloads.
+ *
+ * Enforces Discord constraints and requires either non-empty `content`
+ * or at least one non-empty embed.
+ */
 export const MessageSchema = z
   .object({
     content: z.string().max(2000).optional(),

@@ -6,6 +6,12 @@ import { RequestError } from '../errors';
  * @param second - The number of seconds to delay.
  * @returns A Promise that resolves after the specified number of seconds.
  */
+/**
+ * Delay helper for retry/backoff logic.
+ *
+ * Useful for respecting Discord rate limits and retry-after headers.
+ * @param second Number of seconds to wait.
+ */
 export function delay(second: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, second * 1000);
@@ -19,12 +25,21 @@ export function delay(second: number): Promise<void> {
  * @internal
  * @category Internal
  */
+/**
+ * Lightweight HTTP client wrapper around Axios with Discord-focused error and rate-limit handling.
+ *
+ * This class is used internally by `Webhook` to interact with Discord's Webhook API.
+ */
 export class Request {
   /**
    * The number of request attempts made.
    */
   private retries = 1;
 
+  /**
+   * Create a request helper bound to a specific Axios instance (baseURL, headers).
+   * @param client Pre-configured Axios instance.
+   */
   constructor(private client: AxiosInstance) {}
 
   /**
@@ -36,6 +51,19 @@ export class Request {
    * @param url - Optional URL for the request. If not provided, axios baseURL will be used.
    * @returns A Promise that resolves with the response data, or rejects with an Error if an error occurs.
    * @throws {Error} if an error occurs.
+   */
+  /**
+   * Send an HTTP request with retries and rich error translation.
+   *
+   * - Handles 429 rate limits via retry-after semantics up to a safe cap
+   * - Maps common Discord API error shapes to typed `RequestError`
+   *
+   * @param method HTTP method to use. Defaults to 'GET'.
+   * @param data Optional request payload (JSON or FormData).
+   * @param headers Optional request headers.
+   * @param url Optional request path. Falls back to Axios baseURL when omitted.
+   * @returns The parsed response body, or `undefined` for 204 responses.
+   * @throws {RequestError} On HTTP failures or unrecoverable rate limiting.
    */
   public async send(
     method: 'GET' | 'POST' | 'PATCH' | 'DELETE' = 'GET',
