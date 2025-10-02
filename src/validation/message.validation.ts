@@ -4,8 +4,8 @@ import { EmbedSchema } from './embed.validation';
 /**
  * Zod schema for validating Discord webhook message payloads.
  *
- * Enforces Discord constraints and requires either non-empty `content`
- * or at least one non-empty embed.
+ * Enforces Discord constraints and requires either non-empty `content`,
+ * at least one non-empty embed, or file attachments.
  */
 export const MessageSchema = z
   .object({
@@ -44,3 +44,36 @@ export const MessageSchema = z
       message: 'Message must have content or at least one non-empty embed.',
     }
   );
+
+/**
+ * Extended validation function for messages with attachments.
+ * This validates the JSON payload and also checks if attachments are present.
+ */
+export function validateMessageWithAttachments(
+  payload: Record<string, unknown>,
+  hasAttachments: boolean
+): { success: boolean; error?: string } {
+  // First validate the basic payload structure
+  const result = MessageSchema.safeParse(payload);
+  
+  if (!result.success) {
+    // If basic validation fails, check if it's because of missing content/embeds
+    // but we have attachments which should make it valid
+    if (hasAttachments) {
+      const hasContent = !!(payload.content as string)?.trim();
+      const hasEmbeds = !!(payload.embeds as unknown[])?.length;
+      
+      if (!hasContent && !hasEmbeds) {
+        // Attachments alone are valid for Discord
+        return { success: true };
+      }
+    }
+    
+    return {
+      success: false,
+      error: result.error.issues.map(issue => issue.message).join(', ')
+    };
+  }
+  
+  return { success: true };
+}

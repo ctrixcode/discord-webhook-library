@@ -1,5 +1,5 @@
 import { Webhook, WebhookInstance } from './client/Webhook';
-import { Message, MessageOptions } from './builders/Message';
+import { Message, MessageOptions, MessageAttachment } from './builders/Message';
 import { Embed, AuthorOptions } from './builders/Embed';
 import { Field } from './components/Field';
 import { Footer } from './components/Footer';
@@ -38,6 +38,7 @@ export {
 
 export type {
   MessageOptions,
+  MessageAttachment,
   AuthorOptions,
   SendFailureDetail,
   WebhookInstance,

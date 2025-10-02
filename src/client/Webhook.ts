@@ -1,6 +1,6 @@
 import { Message } from '../builders/Message';
 import { Embed } from '../builders/Embed';
-import { MessageSchema } from '../validation/message.validation';
+import { MessageSchema, validateMessageWithAttachments } from '../validation/message.validation';
 import axios, { AxiosInstance } from 'axios';
 import { Request, delay } from './Request';
 import * as fs from 'fs';
@@ -126,19 +126,15 @@ export class Webhook {
     // First, validate all message payloads.
     // This will throw a ValidationError immediately if any are invalid.
     for (const message of this.messages) {
-      try {
-        MessageSchema.parse(message.getPayload());
-      } catch (error: unknown) {
-        if (error instanceof ZodError) {
-          throw new ValidationError(
-            'Invalid message payload provided.',
-            error.issues
-          );
-        } else {
-          throw new WebhookError(
-            `An unexpected error occurred during validation: ${String(error)}`
-          );
-        }
+      const payload = message.getPayload();
+      const hasAttachments = message.hasAttachments();
+      
+      const validation = validateMessageWithAttachments(payload, hasAttachments);
+      if (!validation.success) {
+        throw new ValidationError(
+          `Invalid message payload provided: ${validation.error}`,
+          []
+        );
       }
     }
 
@@ -239,14 +235,55 @@ export class Webhook {
       method = 'PATCH';
     }
 
-    return await requestClient.send(
-      method,
-      payload,
-      {
-        'Content-Type': 'application/json',
-      },
-      url === '' ? undefined : url
-    );
+    // Check if message has attachments
+    if (message.hasAttachments()) {
+      const form = new FormData();
+      
+      // Add the JSON payload
+      form.append('payload_json', JSON.stringify(payload));
+      
+      // Add each attachment
+      for (let i = 0; i < message.attachments.length; i++) {
+        const attachment = message.attachments[i];
+        
+        if (typeof attachment.data === 'string') {
+          // File path - create read stream
+          try {
+            fs.accessSync(attachment.data, fs.constants.R_OK);
+            form.append(`files[${i}]`, fs.createReadStream(attachment.data), {
+              filename: attachment.filename,
+            });
+          } catch (error: unknown) {
+            throw new FileSystemError(
+              `Cannot read file at path: ${attachment.data}. Original error: ${String(error)}`,
+              'FILE_READ_ERROR'
+            );
+          }
+        } else {
+          // Buffer data
+          form.append(`files[${i}]`, attachment.data, {
+            filename: attachment.filename,
+          });
+        }
+      }
+      
+      return await requestClient.send(
+        method,
+        form,
+        {}, // Let FormData set the Content-Type with boundary
+        url === '' ? undefined : url
+      );
+    } else {
+      // No attachments - send as JSON
+      return await requestClient.send(
+        method,
+        payload,
+        {
+          'Content-Type': 'application/json',
+        },
+        url === '' ? undefined : url
+      );
+    }
   }
 
   /**
