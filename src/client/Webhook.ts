@@ -2,7 +2,7 @@ import { Message } from '../builders/Message';
 import { Embed } from '../builders/Embed';
 import { MessageSchema } from '../validation/message.validation';
 import axios, { AxiosInstance } from 'axios';
-import { Request } from './Request';
+import { Request, delay } from './Request';
 import * as fs from 'fs';
 import FormData from 'form-data';
 import { DISCORD_COLORS } from '../constants/colors';
@@ -14,13 +14,6 @@ import {
 } from '../errors';
 import { ZodError } from 'zod';
 
-/**
- * Represents a configured Discord webhook instance.
- *
- * This is created internally from a full webhook URL and used to
- * dispatch requests to Discord. Consumers generally do not need to
- * construct this directly.
- */
 export interface WebhookInstance {
   id: string;
   token: string;
@@ -28,15 +21,6 @@ export interface WebhookInstance {
   axiosInstance: AxiosInstance;
 }
 
-/**
- * High-level client for sending messages and files to one or more Discord webhooks.
- *
- * Typical usage:
- * - Create with a webhook URL, or add URLs with `addWebhookUrl`.
- * - Build messages using the `Message` and `Embed` builders.
- * - Queue messages with `addMessage`, then call `send` to dispatch.
- * - Convenience helpers `info`, `success`, `warning`, `error` build colored embeds.
- */
 export class Webhook {
   private webhooks: WebhookInstance[] = [];
   private messages: Message[] = [];
@@ -159,17 +143,42 @@ export class Webhook {
     }
 
     const remainingMessages: Message[] = [];
-    const allErrors: SendFailureDetail[] = []; // Changed type
+    const allErrors: SendFailureDetail[] = [];
+    const rateStateByWebhookId = new Map<string, { nextAvailableAt?: number }>();
 
     for (const webhookInstance of this.webhooks) {
       const requestClient = new Request(webhookInstance.axiosInstance);
+      const state = rateStateByWebhookId.get(webhookInstance.id) || {};
+
       for (const message of this.messages) {
         try {
-          await this._sendOne(message, requestClient);
+          if (state.nextAvailableAt && Date.now() < state.nextAvailableAt) {
+            const waitMs = state.nextAvailableAt - Date.now();
+            await delay(waitMs / 1000);
+          }
+
+          const result = await this._sendOne(message, requestClient);
+
+          const rl = result.rateLimit;
+          if (rl) {
+            if (
+              typeof rl.retryAfterSeconds === 'number' &&
+              rl.retryAfterSeconds > 0
+            ) {
+              state.nextAvailableAt = Date.now() + rl.retryAfterSeconds * 1000;
+            } else if (
+              typeof rl.remaining === 'number' &&
+              rl.remaining <= 0 &&
+              typeof rl.resetAfterSeconds === 'number'
+            ) {
+              state.nextAvailableAt = Date.now() + rl.resetAfterSeconds * 1000;
+            }
+          }
+
+          rateStateByWebhookId.set(webhookInstance.id, state);
         } catch (error: unknown) {
-          remainingMessages.push(message); // Keep message in queue if it failed for any webhook
+          remainingMessages.push(message);
           allErrors.push({
-            // Push SendFailureDetail object
             webhookUrl: webhookInstance.url,
             messagePayload: message.getPayload(),
             error: error,
@@ -197,7 +206,21 @@ export class Webhook {
     }
   }
 
-  private async _sendOne(message: Message, requestClient: Request) {
+  private async _sendOne(
+    message: Message,
+    requestClient: Request
+  ): Promise<{
+    data: unknown;
+    status: number;
+    headers: Record<string, string>;
+    rateLimit?: {
+      remaining?: number;
+      resetAfterSeconds?: number;
+      isGlobal?: boolean;
+      bucket?: string;
+      retryAfterSeconds?: number;
+    };
+  }> {
     const payload = message.getPayload();
 
     let url = '';
@@ -216,7 +239,7 @@ export class Webhook {
       method = 'PATCH';
     }
 
-    await requestClient.send(
+    return await requestClient.send(
       method,
       payload,
       {
