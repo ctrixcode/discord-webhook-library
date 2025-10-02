@@ -14,6 +14,15 @@ dist
 dist-ssr
 *.local
 
+# Test coverage and artifacts
+coverage
+.nyc_output
+*.lcov
+.jest-cache
+test-results
+junit.xml
+*.log
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -24,3 +33,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Ignore vscode AI rules
+.github/instructions/codacy.instructions.md
