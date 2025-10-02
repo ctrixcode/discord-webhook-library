@@ -1,4 +1,17 @@
 import { Embed } from './Embed';
+import * as fs from 'fs';
+
+/**
+ * Represents a file attachment for a Discord message.
+ */
+export interface MessageAttachment {
+  /** The file data as a Buffer or file path string. */
+  data: Buffer | string;
+  /** The filename to display in Discord. */
+  filename: string;
+  /** Optional description for the attachment. */
+  description?: string;
+}
 
 /**
  * Options used to initialize or update a `Message`.
@@ -12,6 +25,7 @@ export interface MessageOptions {
   thread_name?: string;
   flags?: number;
   editTarget?: string;
+  attachments?: MessageAttachment[];
 }
 
 /**
@@ -37,6 +51,8 @@ export class Message {
   public flags?: number;
   /** Target message link or ID to edit when sending this payload. */
   public editTarget?: string;
+  /** File attachments to include with the message. */
+  public attachments: MessageAttachment[] = [];
 
   /**
    * Creates a new Message instance.
@@ -49,6 +65,7 @@ export class Message {
    * @param options.thread_name If the webhook is in a forum channel, this will create a new thread with this name.
    * @param options.flags Advanced message flags.
    * @param options.editTarget The message link or ID to edit an existing message.
+   * @param options.attachments An array of file attachments to include with the message.
    */
   constructor(options?: MessageOptions) {
     if (options) {
@@ -60,6 +77,7 @@ export class Message {
       this.thread_name = options.thread_name;
       this.flags = options.flags;
       this.editTarget = options.editTarget;
+      if (options.attachments) this.attachments = options.attachments;
     }
   }
 
@@ -151,6 +169,45 @@ export class Message {
   public setEditTarget(messageLink: string) {
     this.editTarget = messageLink;
     return this;
+  }
+
+  /**
+   * Adds a file attachment to the message.
+   * @param data The file data as a Buffer or file path string.
+   * @param filename The filename to display in Discord.
+   * @param description Optional description for the attachment.
+   * @returns The current Message instance.
+   */
+  public addAttachment(data: Buffer | string, filename: string, description?: string) {
+    this.attachments.push({ data, filename, description });
+    return this;
+  }
+
+  /**
+   * Adds multiple file attachments to the message.
+   * @param attachments An array of MessageAttachment objects.
+   * @returns The current Message instance.
+   */
+  public addAttachments(attachments: MessageAttachment[]) {
+    this.attachments.push(...attachments);
+    return this;
+  }
+
+  /**
+   * Clears all file attachments from the message.
+   * @returns The current Message instance.
+   */
+  public clearAttachments() {
+    this.attachments = [];
+    return this;
+  }
+
+  /**
+   * Checks if the message has any file attachments.
+   * @returns True if the message has attachments, false otherwise.
+   */
+  public hasAttachments(): boolean {
+    return this.attachments.length > 0;
   }
 
   /**
